@@ -7,7 +7,7 @@ from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
 from prometheus_fastapi_instrumentator import Instrumentator
 
 app = FastAPI(title="Gateway Service")
-
+Instrumentator().instrument(app).expose(app)  
 # Setup tracing
 tracer = setup_tracing("gateway-service")
 
@@ -100,7 +100,3 @@ async def workflow_create_project(data: WorkflowRequest):
         },
     }
     
-    
-@app.on_event("startup")
-async def _startup():
-    Instrumentator().instrument(app).expose(app)    

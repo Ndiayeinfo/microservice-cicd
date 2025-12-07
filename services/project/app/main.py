@@ -5,7 +5,7 @@ from typing import List, Dict
 from prometheus_fastapi_instrumentator import Instrumentator
 
 app = FastAPI(title="Project Service")
-
+Instrumentator().instrument(app).expose(app)  
 
 class Task(BaseModel):
     id: int
@@ -39,7 +39,3 @@ def create_task(task: Dict):
     fake_tasks_db.append(task)
     return {"message": "task created (fake)", "task": task}
 
-
-@app.on_event("startup")
-async def _startup():
-    Instrumentator().instrument(app).expose(app)

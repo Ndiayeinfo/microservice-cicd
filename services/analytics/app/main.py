@@ -9,6 +9,8 @@ import os
 
 app = FastAPI(title="Analytics Service")
 
+Instrumentator().instrument(app).expose(app)  
+
 # Métriques simulées (elles restent même sans Kafka)
 fake_metrics = {
     "active_users": 12,
@@ -50,12 +52,6 @@ else:
     print("Kafka désactivé (KAFKA_ENABLED=false ou absent) → mode mock activé")
 
 
-# ============================================================
-# Prometheus – Toujours activé (même sans Kafka)
-# ============================================================
-@app.on_event("startup")
-async def setup_prometheus():
-    Instrumentator().instrument(app).expose(app)
 
 
 # ============================================================

@@ -26,6 +26,7 @@ except ImportError:
 
 
 app = FastAPI(title="Notification Service")  # ou "Analytics Service"
+Instrumentator().instrument(app).expose(app)  
 
 # ============================================================
 # Initialisation du tracing et observabilité
@@ -35,10 +36,7 @@ tracer = setup_tracing("notification-service")  # ou "analytics-service"
 if FastAPIInstrumentor:
     FastAPIInstrumentor.instrument_app(app)
 
-# Prometheus – toujours activé
-@app.on_event("startup")
-async def setup_prometheus():
-    Instrumentator().instrument(app).expose(app)
+
 
 
 # ============================================================
