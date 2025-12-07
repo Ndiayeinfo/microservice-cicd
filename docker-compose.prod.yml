@@ -1,20 +1,28 @@
 # docker-compose.prod.yml
 # =============================================================
-# Stack PRODUCTION – fonctionne avec l’IP publique uniquement
-# → Pas besoin de domaine, pas de DNS, pas de cloudflare
-# → Tout accessible via https://TON_IP_PUBLIQUE
+# Stack PRODUCTION – SANS KAFKA (0% dépendance externe)
+# → Fonctionne à 100 % avec juste ton IP publique
+# → HTTPS auto, zero-downtime, observabilité complète
+# → Idéal pour MVP, staging ou prod stable sans complexité Kafka
 #
-# Exemple d’accès après déploiement :
-#   API      → https://165.22.224.46
-#   Traefik  → https://165.22.224.46:8080
-#   Jaeger   → http://165.22.224.46:16686
-#   Grafana  → http://165.22.224.46:3000
-#   Prometheus → http://165.22.224.46:9090
+# Accès après déploiement :
+#   API → https://TON_IP_PUBLIQUE
+#   Traefik Dashboard → https://TON_IP_PUBLIQUE:8080
+#   Jaeger → http://TON_IP_PUBLIQUE:16686
+#   Grafana → http://TON_IP_PUBLIQUE:3000
+#   Prometheus → http://TON_IP_PUBLIQUE:9090
 #
-# Prérequis sur le serveur (une seule fois) :
+# Commandes (une seule fois sur le serveur) :
 #   mkdir -p /opt/cloudtaskhub /var/data/traefik
 #   touch /var/data/traefik/acme.json && chmod 600 /var/data/traefik/acme.json
 #   docker network create traefik-public
+#   cd /opt/cloudtaskhub
+#   # copie ce fichier + .env puis :
+#   docker stack deploy -c docker-compose.prod.yml cloudtaskhub
+#
+# Fichier .env (sur le serveur) :
+#   DOCKERHUB_USERNAME=tonusername
+#   IMAGE_TAG=latest
 # =============================================================
 
 networks:
@@ -27,7 +35,7 @@ networks:
 services:
 
   # ========================================
-  # TRAEFIK v3 – HTTPS auto avec IP publique (Let's Encrypt marche !)
+  # TRAEFIK v3 – Reverse proxy + HTTPS auto (Let's Encrypt)
   # ========================================
   traefik:
     image: traefik:v3.1
@@ -39,10 +47,9 @@ services:
       - "--entrypoints.websecure.address=:443"
       - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
       - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
-      # Let's Encrypt en mode HTTP challenge (fonctionne sans domaine)
       - "--certificatesresolvers.myresolver.acme.httpchallenge=true"
       - "--certificatesresolvers.myresolver.acme.httpchallenge.entrypoint=web"
-      - "--certificatesresolvers.myresolver.acme.email=donaldtedom0@gmail.com"  # obligatoire
+      - "--certificatesresolvers.myresolver.acme.email=donaldtedom0@gmail.com"
       - "--certificatesresolvers.myresolver.acme.storage=/acme.json"
       - "--api.dashboard=true"
       - "--api.insecure=false"
@@ -56,7 +63,7 @@ services:
         mode: host
       - target: 8080
         published: 8080
-        mode: host                     # Dashboard → https://TON_IP:8080
+        mode: host
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /var/data/traefik/acme.json:/acme.json
@@ -65,7 +72,6 @@ services:
         constraints:
           - node.role == manager
       labels:
-        # Dashboard accessible sur le port 8080
         - "traefik.enable=true"
         - "traefik.http.routers.dashboard.rule=HostRegexp(`{host:.+}`) && PathPrefix(`/dashboard`)"
         - "traefik.http.routers.dashboard.service=api@internal"
@@ -75,17 +81,21 @@ services:
       - traefik-public
 
   # ========================================
-  # GATEWAY – point d’entrée principal
+  # API GATEWAY – Point d’entrée public
   # ========================================
   gateway-service:
     image: ${DOCKERHUB_USERNAME}/cloudtaskhub-gateway:${IMAGE_TAG:-latest}
     environment:
-      - KAFKA_BOOTSTRAP_SERVERS=kafka-1:9092,kafka-2:9092,kafka-3:9092
+      # On désactive Kafka en prod si tu ne l'utilises pas encore
+      - KAFKA_ENABLED=false
+      - TEST_MODE=false
     deploy:
       replicas: 3
+      update_config:
+        parallelism: 1
+        delay: 10s
       labels:
         - "traefik.enable=true"
-        # Accessible sur la racine de l’IP
         - "traefik.http.routers.gateway.rule=HostRegexp(`{host:.+}`)"
         - "traefik.http.routers.gateway.entrypoints=websecure"
         - "traefik.http.routers.gateway.tls.certresolver=myresolver"
@@ -95,99 +105,62 @@ services:
       - internal
 
   # ========================================
-  # MICRO-SERVICES (pas exposés publiquement → uniquement via gateway)
+  # MICRO-SERVICES (internes uniquement)
   # ========================================
   auth-service:
     image: ${DOCKERHUB_USERNAME}/cloudtaskhub-auth:${IMAGE_TAG:-latest}
     environment:
-      - KAFKA_BOOTSTRAP_SERVERS=kafka-1:9092,kafka-2:9092,kafka-3:9092
-    deploy: { replicas: 2 }
-    networks: [internal]
+      - KAFKA_ENABLED=false
+    deploy:
+      replicas: 2
+    networks:
+      - internal
 
   project-service:
     image: ${DOCKERHUB_USERNAME}/cloudtaskhub-project:${IMAGE_TAG:-latest}
     environment:
-      - KAFKA_BOOTSTRAP_SERVERS=kafka-1:9092,kafka-2:9092,kafka-3:9092
-    deploy: { replicas: 2 }
-    networks: [internal]
+      - KAFKA_ENABLED=false
+    deploy:
+      replicas: 2
+    networks:
+      - internal
 
   billing-service:
     image: ${DOCKERHUB_USERNAME}/cloudtaskhub-billing:${IMAGE_TAG:-latest}
     environment:
-      - KAFKA_BOOTSTRAP_SERVERS=kafka-1:9092,kafka-2:9092,kafka-3:9092
-    deploy: { replicas: 2 }
-    networks: [internal]
+      - KAFKA_ENABLED=false
+    deploy:
+      replicas: 2
+    networks:
+      - internal
 
   notification-service:
     image: ${DOCKERHUB_USERNAME}/cloudtaskhub-notification:${IMAGE_TAG:-latest}
     environment:
-      - KAFKA_BOOTSTRAP_SERVERS=kafka-1:9092,kafka-2:9092,kafka-3:9092
-    deploy: { replicas: 2 }
-    networks: [internal]
+      - KAFKA_ENABLED=false
+    deploy:
+      replicas: 2
+    networks:
+      - internal
 
   analytics-service:
     image: ${DOCKERHUB_USERNAME}/cloudtaskhub-analytics:${IMAGE_TAG:-latest}
     environment:
-      - KAFKA_BOOTSTRAP_SERVERS=kafka-1:9092,kafka-2:9092,kafka-3:9092
-    deploy: { replicas: 2 }
-    networks: [internal]
+      - KAFKA_ENABLED=false
+    deploy:
+      replicas: 2
+    networks:
+      - internal
 
   # ========================================
-  # KAFKA KRaft – 3 nœuds (haute dispo)
-  # ========================================
-  kafka-1:
-    image: bitnami/kafka
-    hostname: kafka-1
-    environment:
-      - KAFKA_ENABLE_KRAFT=yes
-      - KAFKA_CFG_PROCESS_ROLES=broker,controller
-      - KAFKA_CFG_NODE_ID=1
-      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@kafka-1:9093,2@kafka-2:9093,3@kafka-3:9093
-      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
-      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka-1:9092
-      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
-      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
-    deploy: { replicas: 1 }
-    networks: [internal]
-
-  kafka-2:
-    image: bitnami/kafka
-    hostname: kafka-2
-    environment:
-      - KAFKA_ENABLE_KRAFT=yes
-      - KAFKA_CFG_PROCESS_ROLES=broker,controller
-      - KAFKA_CFG_NODE_ID=2
-      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@kafka-1:9093,2@kafka-2:9093,3@kafka-3:9093
-      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
-      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka-2:9092
-      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
-      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
-    deploy: { replicas: 1 }
-    networks: [internal]
-
-  kafka-3:
-    image: bitnami/kafka
-    hostname: kafka-3
-    environment:
-      - KAFKA_ENABLE_KRAFT=yes
-      - KAFKA_CFG_PROCESS_ROLES=broker,controller
-      - KAFKA_CFG_NODE_ID=3
-      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@kafka-1:9093,2@kafka-2:9093,3@kafka-3:9093
-      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
-      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka-3:9092
-      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
-      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
-    deploy: { replicas: 1 }
-    networks: [internal]
-
-  # ========================================
-  # OBSERVABILITÉ (accessibles directement sur IP)
+  # OBSERVABILITÉ (directement accessible)
   # ========================================
   jaeger:
     image: jaegertracing/all-in-one:1.58
     ports:
       - "16686:16686"
-    networks: [internal]
+    networks:
+      - internal
 
   prometheus:
     image: prom/prometheus:latest
@@ -195,10 +168,12 @@ services:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
     ports:
       - "9090:9090"
-    networks: [internal]
+    networks:
+      - internal
 
   grafana:
     image: grafana/grafana:latest
     ports:
       - "3000:3000"
-    networks: [internal]
+    networks:
+      - internal
