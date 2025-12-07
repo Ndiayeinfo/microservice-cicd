@@ -59,12 +59,12 @@ jobs:
             -v
 
       # 5. Upload du rapport de couverture vers Codecov (facultatif mais PRO)
-      - name: Upload couverture vers Codecov
-        uses: codecov/codecov-action@v4
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}   # optionnel si repo public
-          fail_ci_if_error: true
-          verbose: true
+      # - name: Upload couverture vers Codecov
+      #   uses: codecov/codecov-action@v4
+      #   with:
+      #     token: ${{ secrets.CODECOV_TOKEN }}   # optionnel si repo public
+      #     fail_ci_if_error: true
+      #     verbose: true
 
       # =============================================================
       # TESTS D’INTÉGRATION (avec tout le stack réel)
