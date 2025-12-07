@@ -56,6 +56,11 @@ async def webhook(event: BillingEvent):
     return {"message": "billing event produced to kafka"}
 
 
+@app.get("/health")
+def health():
+    return {"status": "ok", "service": "billing"}
+
+
 @app.on_event("startup")
 async def _startup():
     Instrumentator().instrument(app).expose(app)

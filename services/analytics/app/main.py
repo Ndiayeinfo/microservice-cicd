@@ -40,6 +40,15 @@ def app_metrics():
     return fake_metrics
 
 
+@app.get("/health")
+def health():
+    return {"status": "ok", "service": "analytics"}
+
+@app.get("/events/count")
+def count_events():
+    return {"count": fake_metrics["billing_events"]}
+
+
 @app.on_event("startup")
 async def _startup():
     Instrumentator().instrument(app).expose(app)

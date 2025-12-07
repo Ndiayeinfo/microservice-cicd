@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
-from typing import List
+from typing import List, Dict
 
 from prometheus_fastapi_instrumentator import Instrumentator
 
@@ -31,7 +31,11 @@ def list_tasks():
 
 
 @app.post("/tasks")
-def create_task(task: Task):
+def create_task(task: Dict):
+    id = task['id']
+    title = task['title']
+    done = task['done']
+    task = Task(id=id, title=title, done=done)
     fake_tasks_db.append(task)
     return {"message": "task created (fake)", "task": task}
 

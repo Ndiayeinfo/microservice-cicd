@@ -11,6 +11,6 @@ def test_project_health():
     assert response.status_code == 200
 
 def test_create_project_simulation():
-    payload = {"name": "Test Project"}
-    response = client.post("/projects", json=payload)
+    payload = {id:4, 'title':"Écrire les tests unitaires à partir de la doc", 'done':False}
+    response = client.post("/tasks", json=payload)
     assert response.status_code in [200, 201, 400]

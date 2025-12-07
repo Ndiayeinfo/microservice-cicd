@@ -48,6 +48,13 @@ async def startup_event():
 def app_metrics():
     return fake_metrics
 
+@app.get("/health")
+def health():
+    return {"status": "ok", "service": "notification"} 
+
+
+
+
 
 @app.on_event("startup")
 async def _startup():
