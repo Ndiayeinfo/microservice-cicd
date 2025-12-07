@@ -136,7 +136,7 @@ services:
   # KAFKA KRaft – 3 nœuds (haute dispo)
   # ========================================
   kafka-1:
-    image: bitnami/kafka:3.7
+    image: bitnami/kafka:latest
     hostname: kafka-1
     environment:
       - KAFKA_ENABLE_KRAFT=yes
@@ -151,7 +151,7 @@ services:
     networks: [internal]
 
   kafka-2:
-    image: bitnami/kafka:3.8.0
+    image: bitnami/kafka:latest
     hostname: kafka-2
     environment:
       - KAFKA_ENABLE_KRAFT=yes
@@ -166,7 +166,7 @@ services:
     networks: [internal]
 
   kafka-3:
-    image: bitnami/kafka:3.8.0
+    image: bitnami/kafka:latest
     hostname: kafka-3
     environment:
       - KAFKA_ENABLE_KRAFT=yes
