@@ -53,8 +53,7 @@ jobs:
       # 4. Lance les tests unitaires + génération du rapport de couverture
       - name: Tests unitaires + couverture (Codecov)
         run: |
-          pytest tests/unit/ \
-            --cov=services \
+          pytest --cov=services \
             --cov-report=xml \
             --cov-report=term-missing \
             -v
