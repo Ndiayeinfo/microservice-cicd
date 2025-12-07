@@ -2,7 +2,7 @@ import json
 import asyncio
 from fastapi import FastAPI
 from aiokafka import AIOKafkaConsumer
-from tracing import setup_tracing
+from .tracing import setup_tracing
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.instrumentation.aiokafka import AIOKafkaInstrumentor
 from prometheus_fastapi_instrumentator import Instrumentator

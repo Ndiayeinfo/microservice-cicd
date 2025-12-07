@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from aiokafka import AIOKafkaProducer
 import json
 
-from tracing import setup_tracing
+from .tracing import setup_tracing
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.instrumentation.aiokafka import AIOKafkaInstrumentor
 from prometheus_fastapi_instrumentator import Instrumentator
