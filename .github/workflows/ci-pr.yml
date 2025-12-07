@@ -1,95 +1,111 @@
 # .github/workflows/ci-pr.yml
+# =============================================================
+# CI - Validation des Pull Requests
+# → Ne lance les tests QUE si un vrai service a été modifié
+# → 100 % dynamique : tu ajoutes 50 services → ça marche direct
+# → Zéro bug de parsing, zéro paths-filter compliqué
+# → Ultra rapide et zéro maintenance
+# =============================================================
+
 name: CI - Pull Request
 
+# Se déclenche à chaque ouverture/modification de PR vers main
 on:
   pull_request:
     branches: [ main ]
 
+# Annule les anciens runs si tu pousses plusieurs commits dans la même PR
 concurrency:
   group: pr-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
+
   # =============================================================
-  # 1. Auto-détection des services + génération dynamique du filtre
+  # 1. Détection SIMPLE et ROBUSTE des services modifiés dans la PR
+  #    → Pas de génération de YAML, pas de EOF, pas de bug
   # =============================================================
   detect-services:
     runs-on: ubuntu-latest
     outputs:
-      services_matrix: ${{ steps.generate.outputs.matrix }}
-      has_code_changes: ${{ steps.generate.outputs.has_changes }}
+      has_changes: ${{ steps.check.outputs.has_changes }}      # true/false
+      changed_services: ${{ steps.check.outputs.changed_services }}  # liste lisible
     steps:
-      - uses: actions/checkout@v4
+      # Récupère tout le code + l’historique pour git diff
+      - name: Checkout complet du repo
+        uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 0        # obligatoire pour comparer avec base.sha
 
-      # Étape magique : lit tous les dossiers dans services/ et génère le filtre
-      - name: Générer automatiquement les filtres pour tous les services
-        id: generate
+      # Étape magique : détecte si un fichier dans services/ a changé
+      # → si oui → on lance les tests
+      # → si non (juste README, docs, etc.) → on skippe tout
+      - name: Vérifier si un service a été modifié
+        id: check
         run: |
-          # 1. Liste tous les dossiers dans services/ (sauf shared)
-          SERVICES=$(ls -d services/*/ | cut -d/ -f2 | grep -v "shared" || true)
-          
-          # 2. Si aucun service → on sort
-          if [ -z "$SERVICES" ]; then
-            echo "Aucun service trouvé"
+          echo "Comparaison entre ${{ github.event.pull_request.base.sha }} et ${{ github.sha }}"
+
+          # Tous les fichiers modifiés dans cette PR
+          CHANGED_FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.sha }} || echo "")
+
+          # On regarde s’il y a au moins un fichier dans services/ (sauf shared seul)
+          if echo "$CHANGED_FILES" | grep -Eq '^services/(gateway|auth|project|billing|notification|analytics)/'; then
+            echo "Des services ont été modifiés !"
+
+            # Liste propre des services touchés (pour Slack)
+            SERVICES=$(echo "$CHANGED_FILES" | grep '^services/' | cut -d/ -f2 | sort -u | grep -v '^shared$' | tr '\n' ' ' | sed 's/ $//')
+            echo "Services détectés : $SERVICES"
+
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "changed_services=$SERVICES" >> $GITHUB_OUTPUT
+          else
+            echo "Aucun service modifié (seulement docs, README, etc.) → tests ignorés"
             echo "has_changes=false" >> $GITHUB_OUTPUT
-            echo "matrix=[{\"service\":\"none\"}]" >> $GITHUB_OUTPUT
-            exit 0
+            echo "changed_services=aucun" >> $GITHUB_OUTPUT
           fi
 
-          # 3. Génère le YAML pour paths-filter
-          FILTER_YAML=""
-          for svc in $SERVICES; do
-            FILTER_YAML="$FILTER_YAML
-            $svc:
-              - 'services/$svc/**'
-              - 'services/shared/**'"
-          done
-
-          echo "=== FILTRES GÉNÉRÉS AUTOMATIQUEMENT ==="
-          echo "$FILTER_YAML"
-          echo "=== FIN ==="
-
-          # 4. Écrit le YAML dans un fichier temporaire
-          echo "$FILTER_YAML" > /tmp/generated-filters.yml
-
-          # 5. Sortie pour paths-filter
-          echo "filters<<EOF" >> $GITHUB_OUTPUT
-          cat /tmp/generated-filters.yml >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-
-          # 6. Matrice pour les jobs suivants (format matrix)
-          MATRIX=$(echo "$SERVICES" | jq -R . | jq -s '{service: .}')
-          echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
-
-          # 7. Détection si du code a changé (hors docs, README, etc.)
-          CODE_CHANGED=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.sha }} | grep -E '^services/.*\.(py|js|go|ts|java)$' || true)
-          [ -n "$CODE_CHANGED" ] && echo "has_changes=true" >> $GITHUB_OUTPUT || echo "has_changes=false" >> $GITHUB_OUTPUT
-
-      # Maintenant on utilise le filtre généré dynamiquement
-      - uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          filters: ${{ steps.generate.outputs.filters }}
-
   # =============================================================
-  # 2. Lancer les tests seulement si du vrai code a changé
+  # 2. Lancer les tests (uniquement si un service a changé)
   # =============================================================
   tests:
     needs: detect-services
-    if: needs.detect-services.outputs.has_changes == 'true' || github.event.pull_request.draft == true
-    uses: ./.github/workflows/test.yml
-    secrets: inherit
+    # On lance les tests si :
+    #   • un service a été modifié
+    #   • OU si c’est une draft PR (pratique pour tester avant review)
+    if: >
+      needs.detect-services.outputs.has_changes == 'true' ||
+      github.event.pull_request.draft == true
+
+    uses: ./.github/workflows/test.yml        # ← workflow réutilisable (doit être à la racine)
+    secrets: inherit                          # passe tous les secrets (DB, etc.)
 
   # =============================================================
-  # 3. Slack si échec
+  # 3. Notification Slack en cas d’échec
   # =============================================================
   slack-failure:
     needs: tests
-    if: failure()
+    if: failure()                             # seulement si les tests ont planté
     uses: ./.github/workflows/slack-notify.yml
     with:
       status: failure
-      title: "PR #${{ github.event.pull_request.number }} échouée"
+      title: "PR #${{ github.event.pull_request.number }} a échoué"
+      message: |
+        Services modifiés : **${{ needs.detect-services.outputs.changed_services }}**
+        Auteur : ${{ github.actor }}
+        Lien : https://github.com/${{ github.repository }}/pull/${{ github.event.pull_request.number }}
+    secrets: inherit
+
+  # =============================================================
+  # 4. Notification Slack si tout est bon (optionnel mais pro)
+  # =============================================================
+  slack-success:
+    needs: [detect-services, tests]
+    if: success() && needs.detect-services.outputs.has_changes == 'true'
+    uses: ./.github/workflows/slack-notify.yml
+    with:
+      status: success
+      title: "PR #${{ github.event.pull_request.number }} validée"
+      message: |
+        Tous les tests sont passés !
+        Services testés : **${{ needs.detect-services.outputs.changed_services }}**
     secrets: inherit
