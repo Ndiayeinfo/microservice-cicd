@@ -77,7 +77,7 @@ jobs:
             Initié par : **${{ github.actor }}**
             Commit concerné : https://github.com/${{ github.repository }}/commit/${{ github.sha }}
             Heure : ${{ steps.date.outputs.date }}
-        secrets: inherit
+          secrets: inherit
 
       # Bonus : ajoute la date/heure lisible dans le message Slack
       - name: Générer date lisible

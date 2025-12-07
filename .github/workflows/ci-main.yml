@@ -74,7 +74,7 @@ jobs:
   build-push:
     needs: detect-changes
     # Si matrix est vide → ce job est sauté automatiquement
-    if: json(needs.detect-changes.outputs.matrix).service | length > 0
+    if: needs.detect-changes.outputs.matrix.service.length > 0
 
     # Build en parallèle de tous les services modifiés
     strategy:
@@ -92,7 +92,7 @@ jobs:
   # =============================================================
   slack-success:
     needs: [detect-changes, build-push]
-    if: success() && json(needs.detect-changes.outputs.matrix).service | length > 0
+    if: success() && needs.detect-changes.outputs.matrix.service.length > 0
     uses: ./.github/workflows/reusable/slack-notify.yml
     with:
       status: success
@@ -106,7 +106,7 @@ jobs:
   # Optionnel : notification si RIEN n’a été buildé (ex: juste README modifié)
   slack-noop:
     needs: detect-changes
-    if: success() && json(needs.detect-changes.outputs.matrix).service | length == 0
+    if: success() &&  needs.detect-changes.outputs.matrix.service.length == 0
     uses: ./.github/workflows/reusable/slack-notify.yml
     with:
       status: info

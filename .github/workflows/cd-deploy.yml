@@ -82,7 +82,7 @@ jobs:
             Auteur : ${{ github.actor }}
             Lien : https://github.com/${{ github.repository }}/commit/${{ github.sha }}
             Heure : $(date '+%d/%m/%Y à %H:%M')
-        secrets: inherit
+          secrets: inherit
 
       # Bonus : ajoute la date lisible dans le message Slack
       - name: Générer date lisible
