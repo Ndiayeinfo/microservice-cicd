@@ -1,5 +1,5 @@
 # =============================================================
-# Stack PRODUCTION – MODE SANS DOMAINE
+# Stack PRODUCTION – MODE SANS DOMAINE POUR TESTS LOCAUX
 # → HTTP seulement (pas de HTTPS)
 # → À activer plus tard : Let's Encrypt + HTTPS
 # =============================================================
