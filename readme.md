@@ -22,7 +22,6 @@ Ce projet illustre les bonnes pratiques DevOps modernes, le déploiement distrib
 ### ⚙️ Middleware & Infrastructure
 - **Traefik** → Reverse proxy + routing dynamique
 - **Kafka** (Bitnami) → Messaging Event-Driven
-- **Zookeeper** → Backend Kafka
 - **Jaeger** → Distributed Tracing
 - **Prometheus** → Metrics
 - **Grafana** → Dashboards
