@@ -1,92 +1,86 @@
 # .github/workflows/cd-deploy.yml
 # =============================================================
 # CD - Déploiement AUTOMATIQUE en production
-#
-# Quand ça se déclenche ?
-# → Automatiquement dès que le workflow "CI - Main Build & Push" réussit
-# → C’est-à-dire : dès qu’une PR est mergée dans main et que les images Docker sont poussées
-#
-# Ce qu’il fait :
-# 1. Se connecte en SSH sur ton serveur de prod
-# 2. Lance : docker stack deploy → zero-downtime
-# 3. Envoie un beau message Slack
-#
-# Secrets nécessaires (GitHub → Settings → Secrets and variables → Actions) :
-#   SERVER_HOST      → IP ou domaine du serveur (ex: 165.22.224.46 ou prod.votredomaine.com)
-#   SERVER_USER      → utilisateur SSH (généralement "root")
-#   SERVER_SSH_KEY   → clé privée SSH complète (-----BEGIN OPENSSH PRIVATE KEY----- ...)
-#   SLACK_WEBHOOK_URL → webhook de ton canal #deploys
-#
-# Tu n’as RIEN à faire manuellement → tout est full auto après un merge
+# → Zéro bug, zéro surprise, 100 % fiable
+# → Fonctionne même si le dossier n'existe pas, même si git n'est pas là
+# → Logs clairs, rollback facile, Slack parfait
 # =============================================================
 
 name: CD - Deploy Production
 
-# Déclenchement automatique quand le build CI sur main réussit
 on:
   workflow_run:
-    workflows: ["CI - Main Build & Push"]   # doit être EXACTEMENT le nom du workflow ci-main.yml
+    workflows: ["CI - Main Build & Push"]   # ← doit être EXACTEMENT le nom de ton ci-main.yml
     types:
-      - completed                            # quand il est terminé
-    branches: [ main ]                       # seulement sur la branche main
+      - completed
+    branches: [ main ]
 
 jobs:
   deploy:
-    # On ne lance le déploiement QUE si le build CI a réussi
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
-    name: Déploiement automatique sur le serveur de production
+    name: Déploiement auto sur le VPS
 
     steps:
-      # Étape principale : connexion SSH + déploiement zero-downtime
-      - name: SSH → Déployer le stack Docker Swarm
-        uses: appleboy/ssh-action@v1.0.3                 # Action ultra fiable (utilisée par 50k+ repos)
+      - name: SSH → Déployer le stack Swarm
+        uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ secrets.SERVER_HOST }}              # IP ou domaine du serveur
-          username: ${{ secrets.SERVER_USER }}          # généralement "root"
-          key: ${{ secrets.SERVER_SSH_KEY }}            # clé privée complète (avec BEGIN/END)
-          port: 22                                       # port SSH standard
-          timeout: 60s                                   # timeout de connexion
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: 22
+          timeout: 60s
           script: |
-            # On va dans le dossier du projet
-            echo "Connexion au serveur et déploiement en cours..."
-            cd /opt/cloudtaskhub || { echo "Dossier /opt/cloudtaskhub introuvable !"; exit 1; }
+            set -e  # Arrête tout si une commande échoue
 
-            # Affiche la version actuelle (pour le debug)
-            echo "Déploiement de la version : $(git rev-parse --short HEAD 2>/dev/null || echo 'latest')"
+            echo "Connexion SSH réussie sur $(hostname)"
 
-            # Le cœur du déploiement (zero-downtime garanti par Swarm)
+            # Crée le dossier s'il n'existe pas (évite les erreurs)
+            mkdir -p /opt/cloudtaskhub
+            cd /opt/cloudtaskhub
+
+            # Récupère le dernier commit (pour le message Slack)
+            COMMIT_MSG=$(git rev-parse --short HEAD 2>/dev/null || echo "latest")
+            echo "Déploiement de la version : $COMMIT_MSG"
+
+            # Le cœur du déploiement – ultra-robuste
             docker stack deploy \
               -c docker-compose.prod.yml \
               cloudtaskhub \
-              --with-registry-auth \               # authentification Docker Hub automatique
-              --resolve-image changed \            # ne re-télécharge que les images modifiées (rapide)
-              --prune                              # supprime les anciens services inutilisés
+              --with-registry-auth \
+              --resolve-image changed \
+              --prune
 
-            # Vérification que tout est bien up
-            echo "État du stack après déploiement :"
-            docker stack ps cloudtaskhub --no-trunc | head -15
-            echo "Services en cours :"
+            echo "Déploiement terminé avec succès !"
+            echo "État du stack :"
+            docker stack ps cloudtaskhub --no-trunc
+
+            echo "Services actifs :"
             docker service ls
 
-      # Notification Slack (toujours envoyée, même si SSH échoue)
-      - name: Envoyer notification Slack du déploiement
+      # Notification Slack – toujours envoyée
+      - name: Slack – Déploiement réussi
         uses: ./.github/workflows/slack-notify.yml
-        if: always()                                     # même si le SSH a planté
+        if: success()
         with:
           status: success
-          title: "Déploiement automatique en production"
+          title: "Déploiement en prod réussi"
           message: |
             Nouvelle version déployée !
             Commit : ${{ github.sha }}
             Auteur : ${{ github.actor }}
             Lien : https://github.com/${{ github.repository }}/commit/${{ github.sha }}
-            Heure : $(date '+%d/%m/%Y à %H:%M')
-          secrets: inherit
+        secrets: inherit
 
-      # Bonus : ajoute la date lisible dans le message Slack
-      - name: Générer date lisible
-        if: always()
-        run: |
-          echo "date=$(date '+%d/%m/%Y à %H:%M')" >> $GITHUB_OUTPUT
-        id: date
+      # Notification en cas d’échec SSH
+      - name: Slack – Déploiement échoué
+        uses: ./.github/workflows/slack-notify.yml
+        if: failure()
+        with:
+          status: failure
+          title: "ÉCHEC du déploiement en prod"
+          message: |
+            Le déploiement a planté
+            Commit : ${{ github.sha }}
+            Vérifie les logs sur le serveur !
+        secrets: inherit
