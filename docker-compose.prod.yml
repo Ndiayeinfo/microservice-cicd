@@ -22,6 +22,7 @@ services:
      # PROVIDER SWARM (OBLIGATOIRE EN SWARM MODE)
       - "--providers.swarm=true"
       - "--providers.swarm.exposedbydefault=false"
+      - "--providers.swarm.endpoint=unix:///var/run/docker.sock"   # ← LA LIGNE MANQUANTE !
       - "--providers.swarm.network=traefik-public"
 
       # ================================
