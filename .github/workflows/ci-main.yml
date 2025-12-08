@@ -32,7 +32,6 @@ jobs:
         uses: ./.github/workflows/build-and-push.yml
         with:
           service: ${{ matrix.service }}
-        secrets: inherit   
 
   slack-success:
     needs: build-all
@@ -47,7 +46,6 @@ jobs:
             Toutes les images sont à jour
             Commit : ${{ github.sha }}
             Par : ${{ github.actor }}
-        secrets: inherit
 
   slack-failure:
     if: failure()
