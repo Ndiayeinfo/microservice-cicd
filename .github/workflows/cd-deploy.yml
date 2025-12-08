@@ -1,10 +1,8 @@
-# .github/workflows/cd-deploy.yml
 # =============================================================
-# CD - Déploiement AUTOMATIQUE – VERSION ULTIME 2025
-# → Clone le repo s'il n'existe pas
-# → Pull à chaque fois
-# → Déploie avec le bon tag d'image
-# → Zero bug, zero maintenance
+# CD - Déploiement AUTOMATIQUE
+# Repo : donaldte/microservice-cicd
+# Déploie automatiquement sur ton serveur Docker Swarm
+# Gestion propre du clone/pull même si le dossier existe
 # =============================================================
 
 name: CD - Deploy Production
@@ -30,31 +28,37 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: 22
           timeout: 90s
+
           script: |
             set -e
 
             echo "Connexion SSH réussie sur $(hostname)"
 
-            # Dossier du projet
             cd /opt
 
-            # Clone si pas déjà là, sinon pull
+            # 1. Si dossier existe sans .git → supprimer
+            if [ -d "cloudtaskhub" ] && [ ! -d "cloudtaskhub/.git" ]; then
+              echo "⚠️ Dossier cloudtaskhub existe mais n'est pas un dépôt Git → suppression..."
+              rm -rf cloudtaskhub
+            fi
+
+            # 2. Clone si dossier absent
             if [ ! -d "cloudtaskhub" ]; then
-              echo "Premier déploiement → git clone..."
-              git clone https://github.com/${{ github.repository }}.git cloudtaskhub
+              echo "📥 Premier déploiement → git clone..."
+              git clone https://github.com/donaldte/microservice-cicd.git cloudtaskhub
             fi
 
             cd cloudtaskhub
-            echo "Mise à jour du code..."
+
+            echo "🔄 Mise à jour du code..."
+            git fetch --all
             git checkout main
             git pull origin main
 
-            # Optionnel : on force le tag latest (ou tu peux utiliser le SHA)
             echo "IMAGE_TAG=latest" > .env
             echo "DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}" >> .env
 
-            # Déploiement Swarm
-            echo "Déploiement en cours..."
+            echo "🚀 Déploiement Docker Swarm..."
             docker stack deploy \
               -c docker-compose.prod.yml \
               cloudtaskhub \
@@ -62,7 +66,7 @@ jobs:
               --resolve-image changed \
               --prune
 
-            echo "DÉPLOIEMENT TERMINÉ AVEC SUCCÈS !"
+            echo "✅ DÉPLOIEMENT TERMINÉ AVEC SUCCÈS !"
             docker stack ps cloudtaskhub --no-trunc
             docker service ls
 
@@ -72,7 +76,7 @@ jobs:
         uses: slackapi/slack-github-action@v1.24.0
         with:
           payload: |
-            { "text": "Déploiement en prod réussi (auto clone/pull)" }
+            { "text": "🚀 Déploiement en prod de CloudTaskHub réussi !" }
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
@@ -82,6 +86,6 @@ jobs:
         uses: slackapi/slack-github-action@v1.24.0
         with:
           payload: |
-            { "text": "ÉCHEC du déploiement en prod" }
+            { "text": "❌ ÉCHEC du déploiement CloudTaskHub en production." }
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
