@@ -56,4 +56,3 @@ jobs:
           status: failure
           title: "ÉCHEC du build global"
           message: "Un ou plusieurs services ont planté"
-        secrets: inherit
