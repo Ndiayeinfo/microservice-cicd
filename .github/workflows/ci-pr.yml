@@ -93,14 +93,13 @@ jobs:
         Services modifiés : **${{ needs.detect-services.outputs.changed_services }}**
         Auteur : ${{ github.actor }}
         Lien : https://github.com/${{ github.repository }}/pull/${{ github.event.pull_request.number }}
-    secrets: inherit
 
   # =============================================================
   # 4. Notification Slack si tout est bon (optionnel mais pro)
   # =============================================================
   slack-success:
     needs: [detect-services, tests]
-    if: success() && needs.detect-services.outputs.has_changes == 'true'
+    if: success()
     uses: ./.github/workflows/slack-notify.yml
     with:
       status: success
@@ -108,4 +107,3 @@ jobs:
       message: |
         Tous les tests sont passés !
         Services testés : **${{ needs.detect-services.outputs.changed_services }}**
-    secrets: inherit
