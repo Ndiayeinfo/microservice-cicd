@@ -1,29 +1,9 @@
-# docker-compose.prod.yml
 # =============================================================
-# Stack PRODUCTION – SANS KAFKA (0% dépendance externe)
-# → Fonctionne à 100 % avec juste ton IP publique
-# → HTTPS auto, zero-downtime, observabilité complète
-# → Idéal pour MVP, staging ou prod stable sans complexité Kafka
-#
-# Accès après déploiement :
-#   API → https://TON_IP_PUBLIQUE
-#   Traefik Dashboard → https://TON_IP_PUBLIQUE:8080
-#   Jaeger → http://TON_IP_PUBLIQUE:16686
-#   Grafana → http://TON_IP_PUBLIQUE:3000
-#   Prometheus → http://TON_IP_PUBLIQUE:9090
-#
-# Commandes (une seule fois sur le serveur) :
-#   mkdir -p /opt/cloudtaskhub /var/data/traefik
-#   touch /var/data/traefik/acme.json && chmod 600 /var/data/traefik/acme.json
-#   docker network create traefik-public
-#   cd /opt/cloudtaskhub
-#   # copie ce fichier + .env puis :
-#   docker stack deploy -c docker-compose.prod.yml cloudtaskhub
-#
-# Fichier .env (sur le serveur) :
-#   DOCKERHUB_USERNAME=tonusername
-#   IMAGE_TAG=latest
-# ============================================================="
+# Stack PRODUCTION – MODE SANS DOMAINE
+# → HTTP seulement (pas de HTTPS)
+# → À activer plus tard : Let's Encrypt + HTTPS
+# =============================================================
+
 networks:
   traefik-public:
     external: true
@@ -34,56 +14,90 @@ networks:
 services:
 
   # ========================================
-  # TRAEFIK v3 – Reverse proxy + HTTPS auto (Let's Encrypt)
+  # TRAEFIK – Reverse proxy (mode HTTP)
   # ========================================
   traefik:
     image: traefik:v2.11
     command:
-        - "--providers.docker=true"
-        - "--providers.docker.exposedByDefault=false"
-        - "--entrypoints.web.address=:80"
-        - "--entrypoints.websecure.address=:443"
-        - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
-        - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
-        - "--certificatesresolvers.myresolver.acme.httpchallenge=true"
-        - "--certificatesresolvers.myresolver.acme.httpchallenge.entrypoint=web"
-        - "--certificatesresolvers.myresolver.acme.email=donaldtedom0@gmail.com"
-        - "--certificatesresolvers.myresolver.acme.storage=/acme.json"
-        - "--api.dashboard=true"
-        - "--log.level=INFO"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedByDefault=false"
+
+      # ================================
+      # 🔥 ENTRYPOINTS EN MODE SANS HTTPS
+      # ================================
+      - "--entrypoints.web.address=:80"
+
+      # ==========================================================
+      # ❌ À DÉSACTIVER TANT QUE TU N’AS PAS DE DOMAINE
+      #    Supprimer HTTPS & redirection pour éviter les erreurs
+      # ==========================================================
+      # - "--entrypoints.websecure.address=:443"
+      # - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
+      # - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
+
+      # ====================================================================
+      # ❌ DÉSACTIVER LET'S ENCRYPT POUR LE MOMENT
+      #    (NE FONCTIONNE PAS SANS NOM DE DOMAINE)
+      # ====================================================================
+      # - "--certificatesresolvers.myresolver.acme.httpchallenge=true"
+      # - "--certificatesresolvers.myresolver.acme.httpchallenge.entrypoint=web"
+      # - "--certificatesresolvers.myresolver.acme.email=donaldtedom0@gmail.com"
+      # - "--certificatesresolvers.myresolver.acme.storage=/acme.json"
+
+      - "--api.dashboard=true"
+      - "--log.level=INFO"
+
     ports:
       - target: 80
         published: 80
         mode: host
-      - target: 443
-        published: 443
-        mode: host
+
+      # ==========================================================
+      # ❌ INUTILE POUR L'INSTANT (HTTPS désactivé)
+      # ==========================================================
+      # - target: 443
+      #   published: 443
+      #   mode: host
+
+      # Dashboard Traefik (toujours en clear HTTP)
       - target: 8080
         published: 8080
         mode: host
+
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - /var/data/traefik/acme.json:/acme.json
+
+      # ====================================================================
+      # ❌ LET’S ENCRYPT DÉSACTIVÉ → pas besoin de monter le fichier acme.json
+      # ====================================================================
+      # - /var/data/traefik/acme.json:/acme.json
+
     deploy:
       placement:
         constraints:
           - node.role == manager
       labels:
         - "traefik.enable=true"
+
+        # Dashboard en HTTP simple (pas de HTTPS)
         - "traefik.http.routers.dashboard.rule=HostRegexp(`{host:.+}`) && PathPrefix(`/dashboard`)"
         - "traefik.http.routers.dashboard.service=api@internal"
-        - "traefik.http.routers.dashboard.entrypoints=websecure"
-        - "traefik.http.routers.dashboard.tls.certresolver=myresolver"
+        - "traefik.http.routers.dashboard.entrypoints=web"
+
+        # ==========================================================
+        # ❌ ENLEVER LE CERTRESOLVER
+        # ==========================================================
+        # - "traefik.http.routers.dashboard.tls.certresolver=myresolver"
+
     networks:
       - traefik-public
 
   # ========================================
-  # API GATEWAY – Point d’entrée public
+  # GATEWAY SERVICE (mode HTTP)
   # ========================================
   gateway-service:
     image: ${DOCKERHUB_USERNAME}/cloudtaskhub-gateway:latest
     environment:
-      # On désactive Kafka en prod si tu ne l'utilises pas encore
       - KAFKA_ENABLED=false
       - TEST_MODE=false
     deploy:
@@ -93,16 +107,26 @@ services:
         delay: 10s
       labels:
         - "traefik.enable=true"
+
+        # ==========================================================
+        # 🔥 ROUTE EN HTTP SEULEMENT
+        # ==========================================================
         - "traefik.http.routers.gateway.rule=HostRegexp(`{host:.+}`)"
-        - "traefik.http.routers.gateway.entrypoints=websecure"
-        - "traefik.http.routers.gateway.tls.certresolver=myresolver"
+        - "traefik.http.routers.gateway.entrypoints=web"
+
+        # ==========================================================
+        # ❌ PAS DE HTTPS → PAS DE CERTRESOLVER
+        # ==========================================================
+        # - "traefik.http.routers.gateway.tls.certresolver=myresolver"
+
         - "traefik.http.services.gateway.loadbalancer.server.port=8000"
+
     networks:
       - traefik-public
       - internal
 
   # ========================================
-  # MICRO-SERVICES (internes uniquement)
+  # MICRO-SERVICES INTERNES
   # ========================================
   auth-service:
     image: ${DOCKERHUB_USERNAME}/cloudtaskhub-auth:latest
@@ -150,7 +174,7 @@ services:
       - internal
 
   # ========================================
-  # OBSERVABILITÉ (directement accessible)
+  # OBSERVABILITÉ
   # ========================================
   jaeger:
     image: jaegertracing/all-in-one:1.58

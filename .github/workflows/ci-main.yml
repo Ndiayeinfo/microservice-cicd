@@ -66,45 +66,29 @@ jobs:
   # =============================================================
   # Slack – Succès
   # =============================================================
-  slack-success:
-    needs: build-all
-    if: success()
-    runs-on: ubuntu-latest
-    steps:
-      - uses: slackapi/slack-github-action@v1.24.0
-        with:
-          payload: |
-            {
-              "text": "Build & Push terminé (6 services)",
-              "blocks": [
-                {
-                  "type": "section",
-                  "text": { "type": "mrkdwn", "text": "*Build & Push terminé (6 services)*" }
-                },
-                {
-                  "type": "section",
-                  "fields": [
-                    { "type": "mrkdwn", "text": "*Commit:* ${{ github.sha }}" },
-                    { "type": "mrkdwn", "text": "*Par:* ${{ github.actor }}" }
-                  ]
-                }
-              ]
-            }
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-
   slack-failure:
-    if: failure()
-    runs-on: ubuntu-latest
-    steps:
-      - uses: slackapi/slack-github-action@v1.24.0
-        with:
-          payload: |
-            {
-              "text": "ÉCHEC du build global",
-              "blocks": [
-                { "type": "section", "text": { "type": "mrkdwn", "text": "*ÉCHEC du build global*" } }
-              ]
-            }
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+    needs: build-all
+    if: ${{ github.event_name == 'push' && failure() }}
+    uses: ./.github/workflows/slack-notify.yml
+    with:
+      status: failure
+      title: "Le Build ❌ sur main a échoué"
+      message: |
+        Auteur : ${{ github.actor }}
+        Lien : https://github.com/${{ github.repository }}/commit/${{ github.sha }}
+    secrets: inherit  
+
+  # =============================================================
+  # 4. Notification Slack si tout est bon (optionnel mais pro)
+  # =============================================================
+  slack-success:
+    needs:  build-all
+    if: ${{ github.event_name == 'push' && success() }}
+    uses: ./.github/workflows/slack-notify.yml
+    with:
+      status: success
+      title: "Le Build ✅ sur main a réussi"
+      message: |
+        Tous les services ont été build avec succès !
+        Auteur : ${{ github.actor }}
+        Lien : https://github.com/${{ github.repository }}/commit/${{ github.sha }}
