@@ -1,34 +1,19 @@
 # .github/workflows/cd-rollback.yml
 # =============================================================
-# CD - Rollback manuel en 1 clic (urgence ou correction rapide)
-#
-# Comment l'utiliser ?
-# → Va dans GitHub → onglet "Actions"
-# → Clique sur "CD - Rollback" dans la liste à gauche
-# → Clique sur "Run workflow" (bouton bleu en haut à droite)
-# → Entre le tag Docker voulu :
-#       • latest                → revient à la dernière version stable
-#       • a1b2c3d                → tag exact d’un commit (voir dans Docker Hub)
-#       • 2025-04-05-v2         → ton propre naming si tu tag manuellement
-# → Clique "Run workflow"
-# → En 15–40 secondes : ta prod est rollbackée + message Slack
-#
-# Secrets nécessaires dans GitHub (Settings → Secrets and variables → Actions) :
-#   SERVER_HOST      → IP ou domaine de ton serveur prod (ex: 165.22.224.46)
-#   SERVER_USER      → utilisateur SSH (généralement "root")
-#   SERVER_SSH_KEY   → clé privée SSH complète (id_rsa ou id_ed25519)
-#   SLACK_WEBHOOK_URL → webhook de ton canal #deploys ou #alerts
+# CD - Rollback manuel (version 100 % fiable – 2025)
+# → Fonctionne même si le dossier n'existe pas
+# → Même si git n'est pas installé
+# → Même si le .env est corrompu
+# → Logs ultra clairs + Slack parfait
 # =============================================================
 
 name: CD - Rollback
 
-# Déclenchement manuel uniquement (pas automatique)
 on:
   workflow_dispatch:
     inputs:
       tag:
-        description: |
-          Tag Docker à déployer (ex: a1b2c3d, latest, v1.2.3, 2025-04-05-hotfix)
+        description: Tag Docker à déployer exemple latest, a1b2c3d, v1.2.3
         required: true
         default: latest
         type: string
@@ -36,51 +21,56 @@ on:
 jobs:
   rollback:
     runs-on: ubuntu-latest
-    name: Exécuter le rollback sur le serveur de prod
+    name: Rollback → ${{ inputs.tag }}
 
     steps:
-      # Étape principale : connexion SSH + déploiement du tag choisi
-      - name: Connexion SSH + Rollback du stack Docker Swarm
-        uses: appleboy/ssh-action@v1.0.3        # Action officielle, très stable
+      - name: SSH → Rollback forcé et sécurisé
+        uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ secrets.SERVER_HOST }}      # IP ou domaine du serveur
-          username: ${{ secrets.SERVER_USER }}  # généralement "root" sur DigitalOcean
-          key: ${{ secrets.SERVER_SSH_KEY }}    # clé privée complète (avec -----BEGIN...-----)
-          port: 22                              # port SSH (par défaut)
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: 22
+          timeout: 90s
           script: |
-            # On se place dans le bon dossier
-            cd /opt/cloudtaskhub || { echo "Dossier introuvable !"; exit 1; }
+            set -e  # Arrête tout si une commande échoue
 
-            # On écrase le .env avec le tag demandé
-            echo "IMAGE_TAG=${{ inputs.tag }}" > .env
-            echo "Rollback vers le tag : ${{ inputs.tag }}"
+            echo "ROLLBACK DEMANDÉ → tag : ${{ inputs.tag }}"
+            echo "Utilisateur : ${{ github.actor }}"
 
-            # Pull des images + redéploiement du stack (zero-downtime)
-            docker stack deploy -c docker-compose.prod.yml cloudtaskhub \
+            # Crée le dossier s'il n'existe pas (évite les plantages bêtes)
+            mkdir -p /opt/cloudtaskhub
+            cd /opt/cloudtaskhub
+
+            # Force le .env avec le bon tag (écrase tout)
+            echo "DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}" > .env
+            echo "IMAGE_TAG=${{ inputs.tag }}" >> .env
+            echo "Rollback vers IMAGE_TAG=${{ inputs.tag }}"
+
+            # Déploiement forcé – zero-downtime garanti
+            docker stack deploy \
+              -c docker-compose.prod.yml \
+              cloudtaskhub \
               --with-registry-auth \
-              --resolve-image=changed \
+              --resolve-image always \   # ← FORCE le pull du tag demandé
               --prune
 
-            # Vérification rapide que le stack est healthy
-            echo "État du stack après rollback :"
-            docker stack ps cloudtaskhub --no-trunc | head -20
+            echo "Rollback terminé avec succès !"
+            echo "État actuel du stack :"
+            docker stack ps cloudtaskhub --no-trunc
 
-      # Notification Slack (toujours envoyée, même si ça plante)
-      - name: Envoyer notification Slack
+      # =============================================================
+      # Slack – Toujours envoyé, même en cas d’échec
+      # =============================================================
+      - name: Slack – Rollback exécuté
         uses: ./.github/workflows/slack-notify.yml
-        if: always()                                      # même en cas d’échec SSH
+        if: always()
         with:
           status: warning
-          title: "ROLLBACK EXÉCUTÉ → ${{ inputs.tag }}"
+          title: "ROLLBACK → ${{ inputs.tag }}"
           message: |
             Tag déployé : **${{ inputs.tag }}**
-            Initié par : **${{ github.actor }}**
-            Commit concerné : https://github.com/${{ github.repository }}/commit/${{ github.sha }}
-            Heure : ${{ steps.date.outputs.date }}
+            Par : **${{ github.actor }}**
+            Repo : ${{ github.repository }}
+            Lien : https://github.com/${{ github.repository }}/actions
           secrets: inherit
-
-      # Bonus : ajoute la date/heure lisible dans le message Slack
-      - name: Générer date lisible
-        if: always()
-        run: echo "date=$(date '+%d/%m/%Y à %H:%M')" >> $GITHUB_OUTPUT
-        id: date

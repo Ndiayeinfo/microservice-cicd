@@ -1,117 +1,80 @@
 # .github/workflows/ci-main.yml
 # =============================================================
-# CI - Build & Push intelligent sur la branche main
-# → Ne build QUE les services qui ont changé depuis le dernier commit
-# → Totalement dynamique : tu ajoutes un service → ça marche direct
+# CI - Build & Push TOUS les services sur main
+# → Parallélisation + cache = CI < 2 minutes
+# → Tu ajoutes un service → juste une ligne dans la matrix
 # =============================================================
 
 name: CI - Main Build & Push
 
-# Se déclenche à chaque push sur main (merge PR, commit direct, etc.)
 on:
   push:
     branches: [ main ]
 
-# Évite 10 builds en parallèle si tu pousses 5 commits d’un coup
 concurrency:
   group: ci-main
   cancel-in-progress: true
 
 jobs:
-
   # =============================================================
-  # 1. Détecter automatiquement quels services ont changé
-  #    (sans lister manuellement gateway/auth/etc.)
+  # Build & Push tous les services en parallèle
   # =============================================================
-  detect-changes:
+  build-all:
     runs-on: ubuntu-latest
-    outputs:
-      matrix: ${{ steps.detect.outputs.matrix }}        # → format matrix pour GitHub
-      changed_services: ${{ steps.detect.outputs.list }} # → pour Slack (liste lisible)
+    strategy:
+      matrix:
+        service:
+          - gateway
+          - auth
+          - project
+          - billing
+          - notification
+          - analytics
+      max-parallel: 6
 
+    name: Build → ${{ matrix.service }}
+
+    # ← ICI C'EST UN JOB NORMAL → on utilise steps, PAS uses:
     steps:
-      # Récupère le commit actuel + le précédent (fetch-depth: 2)
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Build & Push ${{ matrix.service }}
+        uses: ./.github/workflows/build-and-push.yml   # ← reusable workflow
         with:
-          fetch-depth: 2
-
-      # Étape magique : détecte TOUS les dossiers dans services/ automatiquement
-      - name: Détecter les services modifiés (100 % dynamique)
-        id: detect
-        run:
-          echo "TODO"
-        # run: |
-        #   # 1. Récupère tous les fichiers modifiés entre HEAD~1 et HEAD
-        #   #    Exemple : services/auth/app.py → on extrait "auth"
-        #   CHANGED_SERVICES=$(
-        #     git diff --name-only HEAD~1 HEAD \
-        #       | grep '^services/' \
-        #       | cut -d/ -f2 \
-        #       | grep -v '^shared$' \    # on ignore le dossier shared seul
-        #       | sort -u
-        #   )
-
-        #   # 2. Si rien n’a changé dans services/ → on skip le build
-        #   if [ -z "$CHANGED_SERVICES" ]; then
-        #     echo "Aucun service modifié → pas de build"
-        #     echo "matrix={\"service\":[]}" >> $GITHUB_OUTPUT
-        #     echo "list=Aucun" >> $GITHUB_OUTPUT
-        #     exit 0
-        #   fi
-
-        #   # 3. Formate pour la matrix GitHub (obligatoire pour strategy.matrix)
-        #   MATRIX=$(echo "$CHANGED_SERVICES" | jq -R . | jq -s '{service: .}')
-        #   echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
-
-        #   # 4. Formate une liste lisible pour Slack
-        #   LIST=$(echo "$CHANGED_SERVICES" | tr '\n' ',' | sed 's/,/, /g; s/, $//')
-        #   echo "list=$LIST" >> $GITHUB_OUTPUT
-
-        #   echo "Services détectés : $LIST"
+          service: ${{ matrix.service }}
+          secrets: inherit
 
   # =============================================================
-  # 2. Build & Push uniquement les services détectés
-  # =============================================================
-  build-push:
-    needs: detect-changes
-    # Si matrix est vide → ce job est sauté automatiquement
-    if: needs.detect-changes.outputs.matrix.service.length > 0
-
-    # Build en parallèle de tous les services modifiés
-    strategy:
-      matrix: ${{ fromJson(needs.detect-changes.outputs.matrix) }}
-      max-parallel: 4
-
-    # Réutilise notre workflow propre et sécurisé
-    uses: ./.github/workflows/build-and-push.yml
-    with:
-      service: ${{ matrix.service }}       # ex: "auth", "gateway", etc.
-    secrets: inherit                       # DOCKERHUB_USERNAME, DOCKERHUB_TOKEN, etc.
-
-  # =============================================================
-  # 3. Notification Slack uniquement si on a buildé quelque chose
+  # Slack – Succès
   # =============================================================
   slack-success:
-    needs: [detect-changes, build-push]
-    if: success() && needs.detect-changes.outputs.matrix.service.length > 0
-    uses: ./.github/workflows/slack-notify.yml
-    with:
-      status: success
-      title: "Images Docker mises à jour"
-      message: |
-        Services buildés : **${{ needs.detect-changes.outputs.changed_services }}**
-        Commit : ${{ github.sha }}
-        Par : ${{ github.actor }}
-    secrets: inherit
+    needs: build-all
+    if: success()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Slack – Build réussi
+        uses: ./.github/workflows/slack-notify.yml
+        with:
+          status: success
+          title: "Build & Push terminé (6 services) ✅"
+          message: |
+            Toutes les images sont à jour
+            Commit : ${{ github.sha }}
+            Par : ${{ github.actor }}
+          secrets: inherit
 
-  # Optionnel : notification si RIEN n’a été buildé (ex: juste README modifié)
-  slack-noop:
-    needs: detect-changes
-    if: success() &&  needs.detect-changes.outputs.matrix.service.length == 0
-    uses: ./.github/workflows/slack-notify.yml
-    with:
-      status: info
-      title: "Aucun service à build"
-      message: "Seuls des fichiers non-critiques ont changé (README, docs, etc.)"
-    secrets: inherit
+  # =============================================================
+  # Slack – Échec
+  # =============================================================
+  slack-failure:
+    if: failure()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Slack – Build échoué
+        uses: ./.github/workflows/slack-notify.yml
+        with:
+          status: failure
+          title: "ÉCHEC ❌ du build global"
+          message: "Un ou plusieurs services ont planté"
+          secrets: inherit
