@@ -19,8 +19,10 @@ services:
   traefik:
     image: traefik:v3.6
     command:
-      - "--providers.docker=true"
-      - "--providers.docker.exposedByDefault=false"
+     # PROVIDER SWARM (OBLIGATOIRE EN SWARM MODE)
+      - "--providers.swarm=true"
+      - "--providers.swarm.exposedbydefault=false"
+      - "--providers.swarm.network=traefik-public"
 
       # ================================
       # 🔥 ENTRYPOINTS EN MODE SANS HTTPS
@@ -45,6 +47,7 @@ services:
       # - "--certificatesresolvers.myresolver.acme.storage=/acme.json"
 
       - "--api.dashboard=true"
+      - "--api.insecure=true"  # Dashboard accessible en HTTP
       - "--log.level=INFO"
 
     ports:
