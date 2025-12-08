@@ -1,173 +1,187 @@
-version: "3.9"
+# =============================================================
+# Stack PRODUCTION – MODE SANS DOMAINE POUR TESTS LOCAUX
+# → HTTP seulement (pas de HTTPS)
+# → À activer plus tard : Let's Encrypt + HTTPS
+# =============================================================
 
 networks:
   traefik-public:
     external: true
   internal:
     driver: overlay
-    attachable: true  # permet aux services non-swarm de s’y connecter si besoin
+    attachable: true
 
 services:
+
   # ========================================
-  # TRAEFIK
+  # TRAEFIK – Reverse proxy (mode HTTP)
   # ========================================
   traefik:
-    image: traefik:v3.1
+    image: traefik:v3.6
     command:
       - "--providers.docker=true"
-      - "--providers.docker.swarmMode=true"
       - "--providers.docker.exposedByDefault=false"
+
+      # ================================
+      # 🔥 ENTRYPOINTS EN MODE SANS HTTPS
+      # ================================
       - "--entrypoints.web.address=:80"
-      - "--entrypoints.websecure.address=:443"
+
+      # ==========================================================
+      # ❌ À DÉSACTIVER TANT QUE TU N’AS PAS DE DOMAINE
+      #    Supprimer HTTPS & redirection pour éviter les erreurs
+      # ==========================================================
+      # - "--entrypoints.websecure.address=:443"
+      # - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
+      # - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
+
+      # ====================================================================
+      # ❌ DÉSACTIVER LET'S ENCRYPT POUR LE MOMENT
+      #    (NE FONCTIONNE PAS SANS NOM DE DOMAINE)
+      # ====================================================================
+      # - "--certificatesresolvers.myresolver.acme.httpchallenge=true"
+      # - "--certificatesresolvers.myresolver.acme.httpchallenge.entrypoint=web"
+      # - "--certificatesresolvers.myresolver.acme.email=donaldtedom0@gmail.com"
+      # - "--certificatesresolvers.myresolver.acme.storage=/acme.json"
+
       - "--api.dashboard=true"
-      - "--api.insecure=false"          # sécurisé en prod
       - "--log.level=INFO"
+
     ports:
       - target: 80
         published: 80
         mode: host
-      - target: 443
-        published: 443
-        mode: host
+
+      # ==========================================================
+      # ❌ INUTILE POUR L'INSTANT (HTTPS désactivé)
+      # ==========================================================
+      # - target: 443
+      #   published: 443
+      #   mode: host
+
+      # Dashboard Traefik (toujours en clear HTTP)
       - target: 8080
         published: 8080
         mode: host
+
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - /var/data/traefik/acme.json:/acme.json
+
+      # ====================================================================
+      # ❌ LET’S ENCRYPT DÉSACTIVÉ → pas besoin de monter le fichier acme.json
+      # ====================================================================
+      # - /var/data/traefik/acme.json:/acme.json
+
     deploy:
       placement:
         constraints:
           - node.role == manager
       labels:
         - "traefik.enable=true"
-        - "traefik.http.routers.dashboard.rule=Host(`traefik.yourdomain.com`)"
+
+        # Dashboard en HTTP simple (pas de HTTPS)
+        - "traefik.http.routers.dashboard.rule=HostRegexp(`{host:.+}`) && PathPrefix(`/dashboard`)"
         - "traefik.http.routers.dashboard.service=api@internal"
-        - "traefik.http.routers.dashboard.entrypoints=websecure"
-        - "traefik.http.routers.dashboard.tls.certresolver=myresolver"
+        - "traefik.http.routers.dashboard.entrypoints=web"
+
+        # ==========================================================
+        # ❌ ENLEVER LE CERTRESOLVER
+        # ==========================================================
+        # - "traefik.http.routers.dashboard.tls.certresolver=myresolver"
+
     networks:
       - traefik-public
 
   # ========================================
-  # GATEWAY + MICRO-SERVICES (tous identiques)
+  # GATEWAY SERVICE (mode HTTP)
   # ========================================
   gateway-service:
-    image: ${DOCKERHUB_USERNAME}/cloudtaskhub-gateway:${IMAGE_TAG:-latest}
+    image: donald284/cloudtaskhub-gateway:latest
+    environment:
+      - KAFKA_ENABLED=false
+      - TEST_MODE=false
     deploy:
       replicas: 3
+      update_config:
+        parallelism: 1
+        delay: 10s
       labels:
         - "traefik.enable=true"
-        - "traefik.http.routers.gateway.rule=Host(`api.yourdomain.com`)"
-        - "traefik.http.routers.gateway.entrypoints=websecure"
-        - "traefik.http.routers.gateway.tls.certresolver=myresolver"
+
+        # ==========================================================
+        # 🔥 ROUTE EN HTTP SEULEMENT
+        # ==========================================================
+        - "traefik.http.routers.gateway.rule=HostRegexp(`{host:.+}`)"
+        - "traefik.http.routers.gateway.entrypoints=web"
+
+        # ==========================================================
+        # ❌ PAS DE HTTPS → PAS DE CERTRESOLVER
+        # ==========================================================
+        # - "traefik.http.routers.gateway.tls.certresolver=myresolver"
+
         - "traefik.http.services.gateway.loadbalancer.server.port=8000"
+
     networks:
       - traefik-public
       - internal
 
+  # ========================================
+  # MICRO-SERVICES INTERNES
+  # ========================================
   auth-service:
-    image: ${DOCKERHUB_USERNAME}/cloudtaskhub-auth:${IMAGE_TAG:-latest}
+    image: donald284/cloudtaskhub-auth:latest
+    environment:
+      - KAFKA_ENABLED=false
     deploy:
       replicas: 2
-      labels:
-        - "traefik.enable=true"
-        - "traefik.http.routers.auth.rule=Host(`auth.yourdomain.com`)"
-        - "traefik.http.routers.auth.entrypoints=websecure"
-        - "traefik.http.routers.auth.tls.certresolver=myresolver"
-        - "traefik.http.services.auth.loadbalancer.server.port=8000"
     networks:
       - internal
-      - traefik-public
-
-  # (project-service, billing-service, notification-service, analytics-service → même pattern)
-  # Je te les mets en version raccourcie pour éviter la répétition :
 
   project-service:
-    image: ${DOCKERHUB_USERNAME}/cloudtaskhub-project:${IMAGE_TAG:-latest}
-    deploy: { replicas: 2 }
-    networks: [internal, traefik-public]
-    configs:
-      - source: app-config
-        target: /app/config.yaml
-
-  billing-service:
-    image: ${DOCKERHUB_USERNAME}/cloudtaskhub-billing:${IMAGE_TAG:-latest}
-    deploy: { replicas: 2 }
-    networks: [internal, traefik-public]
-
-  notification-service:
-    image: ${DOCKERHUB_USERNAME}/cloudtaskhub-notification:${IMAGE_TAG:-latest}
-    deploy: { replicas: 2 }
-    networks: [internal, traefik-public]
-
-  analytics-service:
-    image: ${DOCKERHUB_USERNAME}/cloudtaskhub-analytics:${IMAGE_TAG:-latest}
-    deploy: { replicas: 2 }
-    networks: [internal, traefik-public]
-
-  # ========================================
-  # KAFKA KRaft (3 nœuds – sans Zookeeper !)
-  # ========================================
-  kafka-1:
-    image: bitnami/kafka
-    hostname: kafka-1
+    image: donald284/cloudtaskhub-project:latest
     environment:
-      - KAFKA_ENABLE_KRAFT=yes
-      - KAFKA_CFG_PROCESS_ROLES=broker,controller
-      - KAFKA_CFG_NODE_ID=1
-      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@kafka-1:9093,2@kafka-2:9093,3@kafka-3:9093
-      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
-      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka-1:9092
-      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
-      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      - KAFKA_ENABLED=false
     deploy:
-      replicas: 1
-      placement:
-        constraints: [node.labels.kafka == node1]  # optionnel
+      replicas: 2
     networks:
       - internal
 
-  kafka-2:
-    image: bitnami/kafka
-    hostname: kafka-2
+  billing-service:
+    image: donald284/cloudtaskhub-billing:latest
     environment:
-      - KAFKA_ENABLE_KRAFT=yes
-      - KAFKA_CFG_PROCESS_ROLES=broker,controller
-      - KAFKA_CFG_NODE_ID=2
-      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@kafka-1:9093,2@kafka-2:9093,3@kafka-3:9093
-      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
-      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka-2:9092
-      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
-      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
-    deploy: { replicas: 1 }
-    networks: [internal]
+      - KAFKA_ENABLED=false
+    deploy:
+      replicas: 2
+    networks:
+      - internal
 
-  kafka-3:
-    image: bitnami/kafka
-    hostname: kafka-3
+  notification-service:
+    image: donald284/cloudtaskhub-notification:latest
     environment:
-      - KAFKA_ENABLE_KRAFT=yes
-      - KAFKA_CFG_PROCESS_ROLES=broker,controller
-      - KAFKA_CFG_NODE_ID=3
-      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@kafka-1:9093,2@kafka-2:9093,3@kafka-3:9093
-      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
-      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka-3:9092
-      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
-      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
-    deploy: { replicas: 1 }
-    networks: [internal]
+      - KAFKA_ENABLED=false
+    deploy:
+      replicas: 2
+    networks:
+      - internal
 
-  # Dans tes services, utilise simplement :
-  # KAFKA_BOOTSTRAP_SERVERS=kafka-1:9092,kafka-2:9092,kafka-3:9092
+  analytics-service:
+    image: donald284/cloudtaskhub-analytics:latest
+    environment:
+      - KAFKA_ENABLED=false
+    deploy:
+      replicas: 2
+    networks:
+      - internal
 
   # ========================================
-  # OBSERVABILITY
+  # OBSERVABILITÉ
   # ========================================
   jaeger:
     image: jaegertracing/all-in-one:1.58
     ports:
       - "16686:16686"
-    networks: [internal]
+    networks:
+      - internal
 
   prometheus:
     image: prom/prometheus:latest
@@ -175,14 +189,12 @@ services:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
     ports:
       - "9090:9090"
-    networks: [internal]
+    networks:
+      - internal
 
   grafana:
     image: grafana/grafana:latest
     ports:
       - "3000:3000"
-    networks: [internal]
-
-configs:
-  app-config:
-    file: ./configs/app.yaml
+    networks:
+      - internal
