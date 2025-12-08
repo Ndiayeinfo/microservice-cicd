@@ -97,6 +97,7 @@ services:
   # ========================================
   gateway-service:
     image: ${DOCKERHUB_USERNAME}/cloudtaskhub-gateway:latest
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
     environment:
       - KAFKA_ENABLED=false
       - TEST_MODE=false
@@ -130,6 +131,7 @@ services:
   # ========================================
   auth-service:
     image: ${DOCKERHUB_USERNAME}/cloudtaskhub-auth:latest
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
     environment:
       - KAFKA_ENABLED=false
     deploy:
@@ -139,6 +141,7 @@ services:
 
   project-service:
     image: ${DOCKERHUB_USERNAME}/cloudtaskhub-project:latest
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
     environment:
       - KAFKA_ENABLED=false
     deploy:
@@ -148,6 +151,7 @@ services:
 
   billing-service:
     image: ${DOCKERHUB_USERNAME}/cloudtaskhub-billing:latest
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
     environment:
       - KAFKA_ENABLED=false
     deploy:
@@ -157,6 +161,7 @@ services:
 
   notification-service:
     image: ${DOCKERHUB_USERNAME}/cloudtaskhub-notification:latest
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
     environment:
       - KAFKA_ENABLED=false
     deploy:
@@ -166,6 +171,7 @@ services:
 
   analytics-service:
     image: ${DOCKERHUB_USERNAME}/cloudtaskhub-analytics:latest
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
     environment:
       - KAFKA_ENABLED=false
     deploy:
