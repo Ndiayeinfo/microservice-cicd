@@ -21,13 +21,16 @@ services:
   traefik:
     image: traefik:v3.6
     command:
-      - "--providers.swarm=true"
-      - "--providers.swarm.exposedbydefault=false"
-      - "--providers.swarm.network=traefik-public"
+      - "--api=true"                           # ← obligatoire
+      - "--api.dashboard=true"                 # ← dashboard moderne
+      # - "--api.insecure=true"                # ← SUPPRIME CETTE LIGNE
+      - "--providers.docker=true"              # ← plus clair que swarm=true
+      - "--providers.docker.swarmMode=true"
+      - "--providers.docker.exposedByDefault=false"
+      - "--providers.docker.network=traefik-public"
       - "--entrypoints.web.address=:80"
-      - "--api.dashboard=true"
-      - "--api.insecure=true"
       - "--log.level=INFO"
+      - "--accesslog=true"                     # ← bonus, tu verras les logs dans le dashboard
     ports:
       - target: 80
         published: 80
@@ -42,10 +45,13 @@ services:
         constraints: [node.role == manager]
       labels:
         - "traefik.enable=true"
-        - "traefik.http.routers.dashboard.rule=PathPrefix(`/dashboard`)"
-        - "traefik.http.routers.dashboard.service=api@internal"
-        - "traefik.http.routers.dashboard.entrypoints=web"
-        - "traefik.http.services.traefik.loadbalancer.server.port=8080"
+        # Dashboard + API HTTP sur /dashboard/ et /api
+        - "traefik.http.routers.traefik.rule=PathPrefix(`/dashboard`) || PathPrefix(`/api`)"
+        - "traefik.http.routers.traefik.service=api@internal"
+        - "traefik.http.routers.traefik.entrypoints=web"
+        # Optionnel : protection basique (retiens juste la ligne, tu peux la supprimer)
+        # - "traefik.http.routers.traefik.middlewares=traefik-auth"
+        # - "traefik.http.middlewares.traefik-auth.basicauth.users=admin:$$2y$$05$$k..."
     networks:
       - traefik-public
 
