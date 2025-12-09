@@ -6,10 +6,25 @@ from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExport
 
 
 def setup_tracing(service_name: str):
-    provider = TracerProvider(resource=Resource.create({SERVICE_NAME: service_name}))
+    """
+    Initialise le tracing OpenTelemetry pour un microservice FastAPI
+    et retourne un tracer utilisable dans le code métier.
+    """
+
+    # 1. Déclarer le provider avec le nom du service
+    provider = TracerProvider(
+        resource=Resource.create({SERVICE_NAME: service_name})
+    )
     trace.set_tracer_provider(provider)
 
-    otlp_exporter = OTLPSpanExporter(
-        endpoint="http://jaeger:4318/v1/traces",  # HTTP OTLP endpoint
+    # 2. Exporter vers Jaeger (OTLP HTTP endpoint)
+    exporter = OTLPSpanExporter(
+        endpoint="http://jaeger:4318/v1/traces",
     )
-    provider.add_span_processor(BatchSpanProcessor(otlp_exporter))
+
+    # 3. Ajouter au processeur
+    processor = BatchSpanProcessor(exporter)
+    provider.add_span_processor(processor)
+
+    # 4. Retourner un tracer opérationnel
+    return trace.get_tracer(service_name)
