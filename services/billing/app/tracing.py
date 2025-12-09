@@ -9,7 +9,7 @@ def setup_tracing(service_name: str):
     resource = Resource(attributes={"service.name": service_name})
 
     provider = TracerProvider(resource=resource)
-    exporter = OTLPSpanExporter(endpoint="http://jaeger:4318/v1/traces")
+    exporter = OTLPSpanExporter(endpoint="http://jaeger:16686/v1/traces")
 
     processor = BatchSpanProcessor(exporter)
     provider.add_span_processor(processor)
