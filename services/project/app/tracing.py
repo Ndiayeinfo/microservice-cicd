@@ -11,7 +11,6 @@ def setup_tracing(service_name: str):
 
     otlp_exporter = OTLPSpanExporter(
         endpoint="http://jaeger:4318/v1/traces",  # HTTP OTLP endpoint
-        insecure=True  # indispensable si HTTPS pas configuré
     )
 
     provider.add_span_processor(BatchSpanProcessor(otlp_exporter))
