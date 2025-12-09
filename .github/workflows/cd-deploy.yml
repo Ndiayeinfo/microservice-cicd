@@ -37,7 +37,7 @@ jobs:
             git reset --hard origin/main
             git clean -fd
 
-            # CRÉATION DES RÉSEAUX AVEC SUBNET FIXE (plus jamais de conflit !)
+            # CRÉATION DES RÉSEAUX AVEC SUBNET FIXE 
             echo "Création des réseaux overlay avec subnets fixes..."
             docker network create --driver overlay --attachable --subnet=172.20.0.0/16 traefik-public || true
             docker network create --driver overlay --attachable --subnet=172.21.0.0/16 internal || true

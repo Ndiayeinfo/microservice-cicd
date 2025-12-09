@@ -1,8 +1,7 @@
 # .github/workflows/ci-main.yml
 # =============================================================
-# CI - Main Build & Push – VERSION ULTIME 2025 (steps + matrix)
+# CI - Main Build & Push – VERSION ULTIME  (steps + matrix)
 # → 6 services en parallèle
-# → Utilise un simple step "run" → zéro bug reusable workflow
 # → Cache Docker ultra-rapide
 # → Slack parfait
 # → Tu ajoutes un service → 1 ligne dans la matrix

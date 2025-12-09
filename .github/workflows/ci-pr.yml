@@ -76,7 +76,7 @@ jobs:
     #   needs.detect-services.outputs.has_changes == 'true' ||
     #   github.event.pull_request.draft == true
 
-    uses: ./.github/workflows/test.yml        # ← workflow réutilisable (doit être à la racine)
+    uses: ./.github/workflows/test.yml        # ← workflow réutilisable
     secrets: inherit                          # passe tous les secrets (DB, etc.)
 
   # =============================================================

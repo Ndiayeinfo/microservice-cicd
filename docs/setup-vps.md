@@ -118,11 +118,8 @@ touch /var/data/traefik/acme.json && chmod 600 /var/data/traefik/acme.json
 
 # 2. Copie le fichier ci-dessus → /opt/cloudtaskhub/docker-compose.prod.yml
 
-# 3. Crée le .env
-cat > /opt/cloudtaskhub/.env <<EOF
-DOCKERHUB_USERNAME=donald284
-IMAGE_TAG=latest
-EOF
+# 3. Crée le .env.prod
+met son contenu dans /opt/cloudtaskhub/.env.prod
 
 # 4. Déploie
 cd /opt/cloudtaskhub

@@ -92,12 +92,12 @@ CloudTaskHub utilise Docker Swarm pour un déploiement HA, scalable, sécurisé 
 
 Dans l'environnement :
 
-```bash
-export IMAGE_TAG=latest
-export DOCKERHUB_USERNAME=ton_user
-```
+Voir les variables cicd dans docs/github-secrets.md 
 
-## 2️⃣ Déployer la stack
+pour setup le vps voir docs/vps-setup.md
+
+
+## 2️⃣ Déployer la stack (Docker Swarm) en local
 
 ```bash
 docker stack deploy -c docker-compose.yml cloudtaskhub
