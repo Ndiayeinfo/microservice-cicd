@@ -46,9 +46,10 @@ services:
         - "traefik.http.routers.dashboard.rule=PathPrefix(`/dashboard`) || PathPrefix(`/api`)"  # Accès au dashboard et API
         - "traefik.http.routers.dashboard.service=api@internal"
         - "traefik.http.routers.dashboard.entrypoints=web"
+        - "traefik.http.services.traefik.loadbalancer.server.port=8080"
     networks:
       - traefik-public
-      
+
   gateway-service:
     <<: *common-microservice
     image: ${DOCKERHUB_USERNAME}/cloudtaskhub-gateway:latest
