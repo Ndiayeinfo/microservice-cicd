@@ -7,6 +7,16 @@ networks:
   internal:
     external: true
 
+# Variables d’environnement communes à tous les microservices
+x-common-microservice: &common-microservice
+  env_file:
+    - .env.prod
+  deploy:
+    labels:
+      - traefik.enable=false
+  networks:
+    - internal
+
 services:
   traefik:
     image: traefik:v3.6
@@ -40,9 +50,8 @@ services:
       - traefik-public
 
   gateway-service:
+    <<: *common-microservice
     image: ${DOCKERHUB_USERNAME}/cloudtaskhub-gateway:latest
-    environment:
-      - KAFKA_ENABLED=false
     deploy:
       replicas: 3
       labels:
@@ -55,39 +64,34 @@ services:
       - internal
 
   auth-service:
+    <<: *common-microservice
     image: ${DOCKERHUB_USERNAME}/cloudtaskhub-auth:latest
     deploy:
       replicas: 2
-      labels: [traefik.enable=false]
-    networks: [internal]
 
   project-service:
+    <<: *common-microservice
     image: ${DOCKERHUB_USERNAME}/cloudtaskhub-project:latest
     deploy:
       replicas: 2
-      labels: [traefik.enable=false]
-    networks: [internal]
 
   billing-service:
+    <<: *common-microservice
     image: ${DOCKERHUB_USERNAME}/cloudtaskhub-billing:latest
     deploy:
       replicas: 2
-      labels: [traefik.enable=false]
-    networks: [internal]
 
   notification-service:
+    <<: *common-microservice
     image: ${DOCKERHUB_USERNAME}/cloudtaskhub-notification:latest
     deploy:
       replicas: 2
-      labels: [traefik.enable=false]
-    networks: [internal]
 
   analytics-service:
+    <<: *common-microservice
     image: ${DOCKERHUB_USERNAME}/cloudtaskhub-analytics:latest
     deploy:
       replicas: 2
-      labels: [traefik.enable=false]
-    networks: [internal]
 
   jaeger:
     image: jaegertracing/all-in-one:1.58
