@@ -56,9 +56,13 @@ jobs:
 
             # >>> CRITICAL FIX: Ensure networks exist before deployment <<<
             echo "⚙️ Ensuring required Docker Swarm networks exist..."
-            # Use '|| true' on the creation line so 'set -e' doesn't fail if network already exists
-            docker network inspect traefik-public || docker network create --driver overlay --attachable traefik-public
-            docker network inspect cloudtaskhub_internal || docker network create --driver overlay --attachable cloudtaskhub_internal
+            # Crée un réseau Swarm nommé exactement "traefik-public"
+            docker network inspect traefik-public >/dev/null 2>&1 || \
+              docker network create --driver overlay --attachable traefik-public
+            
+            # Crée un réseau Swarm nommé exactement "internal"
+            docker network inspect internal >/dev/null 2>&1 || \
+              docker network create --driver overlay --attachable internal
             # <<< END FIX >>>
 
 

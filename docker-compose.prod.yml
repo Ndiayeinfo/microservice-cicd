@@ -6,10 +6,9 @@
 
 networks:
   traefik-public:
-    external: true
+    external: true 
   internal:
-    driver: overlay
-    attachable: true
+    external: true
 
 services:
 
