@@ -28,41 +28,57 @@ jobs:
           port: 22
           timeout: 90s
 
+          # --------------------------------------------------
+          # UPDATED SCRIPT (Fixes network error and adds robustness)
+          # --------------------------------------------------
           script: |
             set -e
 
             echo "Connexion SSH réussie sur $(hostname)"
 
-            cd /opt
+            # --- PREPARE DIRECTORY ---
+            WORKDIR="/opt/cloudtaskhub"
+            echo "Working in directory: $WORKDIR"
+            mkdir -p "$WORKDIR"
+            cd "$WORKDIR"
 
-            # 1. Si dossier existe sans .git → supprimer
-            if [ -d "cloudtaskhub" ] && [ ! -d "cloudtaskhub/.git" ]; then
-              echo "⚠️ Dossier cloudtaskhub existe mais n'est pas un dépôt Git → suppression..."
-              rm -rf cloudtaskhub
+            # Check if directory is a git repo, fix if necessary
+            if [ ! -d ".git" ]; then
+              echo "📥 Not a Git repository → Initializing clone..."
+              git clone github.com . # Clone into current dir
             fi
 
-            # 2. Clone si dossier absent
-            if [ ! -d "cloudtaskhub" ]; then
-              echo "📥 Premier déploiement → git clone..."
-              git clone https://github.com/donaldte/microservice-cicd.git cloudtaskhub
-            fi
-
-            cd cloudtaskhub
-
-            echo "🔄 Mise à jour du code..."
+            # --- UPDATE CODE ---
+            echo "🔄 Updating code from Git..."
             git fetch --all
             git checkout main
             git pull origin main
 
-            # EXPORT VARIABLES (critical fix)
-            echo "🌍 Exporting environment variables for Swarm..."
-            export IMAGE_TAG="latest"
-            export DOCKERHUB_USERNAME="${{ secrets.DOCKERHUB_USERNAME }}"
+            # >>> CRITICAL FIX: Ensure networks exist before deployment <<<
+            echo "⚙️ Ensuring required Docker Swarm networks exist..."
+            # Check and create 'traefik-public' if it doesn't exist
+            # Note: This requires the network definition in the compose file to be 'external: true'
+            docker network inspect traefik-public >/dev/null 2>&1 || \
+              docker network create --driver overlay --attachable traefik-public
+            
+            # Check and create 'cloudtaskhub_internal' if it doesn't exist
+            # Note: The stack prefix 'cloudtaskhub' must match your stack name
+            docker network inspect cloudtaskhub_internal >/dev/null 2>&1 || \
+              docker network create --driver overlay --attachable cloudtaskhub_internal
+            # <<< END FIX >>>
 
-            echo "Using DOCKERHUB_USERNAME=$DOCKERHUB_USERNAME"
+
+            # --- DEPLOYMENT PREP ---
+            echo "🌍 Exporting environment variables for Swarm..."
+            # Use 'export' before stack deploy to pass these variables into the compose file
+            export IMAGE_TAG="latest"
+            # DOCKERHUB_USERNAME is already handled by GitHub Secrets mechanism through the `with.script` execution context
+
+            echo "Using DOCKERHUB_USERNAME=$DOCKERHUB_USERNAME (masked in logs)"
             echo "Using IMAGE_TAG=$IMAGE_TAG"
 
-            echo "🚀 Déploiement Docker Swarm..."
+            # --- DOCKER STACK DEPLOYMENT ---
+            echo "🚀 Starting Docker Swarm deployment..."
             docker stack deploy \
               -c docker-compose.prod.yml \
               cloudtaskhub \
@@ -89,7 +105,7 @@ jobs:
     secrets: inherit
 
   # =============================================================
-  # 4. Notification Slack si tout est bon (optionnel mais pro)
+  # 4. Notification Slack si tout est bon
   # =============================================================
   slack-success:
     needs:  deploy
@@ -101,5 +117,4 @@ jobs:
       message: |
         Le déploiement a réussi !
         Auteur : ${{ github.actor }}
-    secrets: inherit  
-
+    secrets: inherit

@@ -1,15 +1,14 @@
 # =============================================================
 # Stack PRODUCTION – MODE SANS DOMAINE POUR TESTS LOCAUX
 # → HTTP seulement (pas de HTTPS)
-# → À activer plus tard : Let's Encrypt + HTTPS
+# → À activer plus tard : Let's Encrypt + HTTPS docker network create --driver overlay --attachable cloudtaskhub_internal
 # =============================================================
 
 networks:
   traefik-public:
     external: true
   internal:
-    driver: overlay
-    attachable: true
+    external: true
 
 services:
 

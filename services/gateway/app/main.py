@@ -17,13 +17,11 @@ HTTPXClientInstrumentor().instrument()
 
 SERVICES = {
     "auth": "http://auth-service:8000",
-    "project": "http://project-service:8001",
-    "billing": "http://billing-service:8002",
-    "notification": "http://notification-service:8003",
-    "analytics": "http://analytics-service:8004",
+    "project": "http://project-service:8000", 
+    "billing": "http://billing-service:8000", 
+    "notification": "http://notification-service:8000", 
+    "analytics": "http://analytics-service:8000", 
 }
-
-
 @app.get("/health")
 def health():
     return {"status": "ok", "service": "gateway"}
