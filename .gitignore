@@ -1,3 +1,16 @@
 .env
 .env.prod
 .env.test
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+*.egg-info/
+build/
+dist/
+venv/
+.env.local
+.venv/
