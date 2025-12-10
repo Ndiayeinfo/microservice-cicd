@@ -1,6 +1,4 @@
 # docker-compose.prod.yml
-version: "3.8"
-
 networks:
   traefik-public:
     external: true
@@ -105,8 +103,8 @@ services:
     image: jaegertracing/all-in-one:1.58
     ports:
       - "16686:16686"
-      - "4317:4317"
-      - "4318:4318"
+      - "4317:4317" # protocal GRPC htttp/2
+      - "4318:4318" # protocal HTTP http/1
     deploy:
       labels: [traefik.enable=false]
     networks: [internal]

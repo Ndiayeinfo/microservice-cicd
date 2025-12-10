@@ -106,7 +106,9 @@ docker stack deploy -c docker-compose.yml cloudtaskhub
 ## 3️⃣ Vérifier l’état
 
 ```bash
-docker stack services cloudtaskhub
+docker stack services cloudtaskhub  # liste les services
+docker service ls                 # liste les services
+docker inspect cloudtaskhub_gateway-service  # voir la configuration
 docker service logs cloudtaskhub_gateway-service -f
 ```
 
