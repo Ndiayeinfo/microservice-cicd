@@ -30,12 +30,30 @@ jobs:
 
             echo "Connexion réussie sur $(hostname)"
 
+            # Créer le répertoire s'il n'existe pas
+            mkdir -p /opt/cloudtaskhub
             cd /opt/cloudtaskhub
 
-            echo "Mise à jour du code..."
-            git fetch --all
-            git reset --hard origin/main
-            git clean -fd
+            # Vérifier si c'est un repository Git
+            if [ -d .git ]; then
+              echo "Repository Git trouvé, mise à jour du code..."
+              git fetch --all
+              git reset --hard origin/main
+              git clean -fd
+            else
+              echo "Repository Git non trouvé, clonage du projet..."
+              # Supprimer le contenu s'il existe (mais pas le répertoire)
+              rm -rf /opt/cloudtaskhub/* /opt/cloudtaskhub/.* 2>/dev/null || true
+              # Cloner le repository (fonctionne pour public et privé avec token si nécessaire)
+              # Pour les repos privés, vous devrez configurer un token GitHub dans les secrets
+              if [ -n "${{ secrets.GITHUB_TOKEN }}" ]; then
+                git clone https://${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git /opt/cloudtaskhub
+              else
+                git clone https://github.com/${{ github.repository }}.git /opt/cloudtaskhub
+              fi
+              cd /opt/cloudtaskhub
+              git checkout main
+            fi
 
             # CRÉATION DES RÉSEAUX AVEC SUBNET FIXE 
             echo "Création des réseaux overlay avec subnets fixes..."
