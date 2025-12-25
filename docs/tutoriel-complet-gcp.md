@@ -909,6 +909,8 @@ Cette requête devrait :
 http://EXTERNAL_IP:8080/dashboard/
 ```
 
+> ⚠️ **Important** : Avec `--api.insecure=true`, le dashboard Traefik est **uniquement accessible sur le port 8080**, pas via le port 80. C'est le comportement normal de Traefik v3. Les services internes (`@internal`) ne peuvent pas être routés via un entrypoint personnalisé comme `web`.
+
 #### Prometheus
 ```
 http://EXTERNAL_IP:9090

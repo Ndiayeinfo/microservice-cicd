@@ -79,27 +79,27 @@ docker service inspect cloudtaskhub_traefik --pretty
 docker service inspect cloudtaskhub_traefik | grep -A 20 Labels
 ```
 
-## ✅ Configuration Corrigée
+## ✅ Configuration et Comportement Normal
 
-La configuration a été mise à jour pour :
+**Important** : Avec `--api.insecure=true` dans Traefik v3, le dashboard est **uniquement accessible sur le port 8080**. C'est le comportement normal et attendu.
 
-1. **Ajouter `--api.insecure=true`** : Permet l'accès au dashboard sans authentification
-2. **Créer un entrypoint `dashboard` sur le port 8080** : `--entrypoints.dashboard.address=:8080`
-3. **Configurer un router pour l'accès direct** : Dashboard accessible sur `http://IP:8080/`
+**Pourquoi ?** Les services internes (`dashboard@internal` et `api@internal`) sont liés à l'entrypoint `traefik` qui est créé automatiquement avec `--api.insecure=true` sur le port 8080. Ils ne peuvent pas être routés via un entrypoint personnalisé comme `web` (port 80).
 
-## 🧪 Test après Redéploiement
+## 🧪 Accès au Dashboard
 
-Après avoir poussé la correction et redéployé :
+Le dashboard Traefik est accessible **uniquement** sur :
 
-1. **Accès direct sur port 8080** :
-   ```
-   http://35.205.129.107:8080/dashboard/
-   ```
+```
+http://VOTRE_IP:8080/dashboard/
+```
 
-2. **Accès via routing sur port 80** :
-   ```
-   http://35.205.129.107/dashboard/
-   ```
+ou pour l'API :
+
+```
+http://VOTRE_IP:8080/api/rawdata
+```
+
+> ⚠️ **Note** : L'accès via le port 80 (`http://IP/dashboard/`) ne fonctionnera **pas** car les services internes ne peuvent pas être routés via l'entrypoint `web`. C'est normal et attendu.
 
 ## 📋 Checklist de Diagnostic
 

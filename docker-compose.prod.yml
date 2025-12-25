@@ -48,16 +48,9 @@ services:
         constraints: [node.role == manager]
       labels:
         - "traefik.enable=true"
-        # Dashboard accessible via le port 80 avec priorité élevée
-        - "traefik.http.routers.dashboard.rule=PathPrefix(`/dashboard`) || PathPrefix(`/api`)"
-        - "traefik.http.routers.dashboard.service=dashboard@internal"
-        - "traefik.http.routers.dashboard.entrypoints=web"
-        - "traefik.http.routers.dashboard.priority=100"  # Priorité élevée pour être avant le Gateway
-        # API accessible via le port 80
-        - "traefik.http.routers.api.rule=PathPrefix(`/api`)"
-        - "traefik.http.routers.api.service=api@internal"
-        - "traefik.http.routers.api.entrypoints=web"
-        - "traefik.http.routers.api.priority=100"
+        # Note: Les services @internal (dashboard, api) ne sont accessibles que via l'entrypoint "traefik" (port 8080)
+        # avec --api.insecure=true. Ils ne peuvent pas être routés via l'entrypoint "web" (port 80).
+        # Le dashboard est accessible directement sur http://IP:8080/dashboard/
     networks:
       - traefik-public
 
@@ -68,8 +61,8 @@ services:
       replicas: 1
       labels:
         - "traefik.enable=true"
-        # Exclure /dashboard et /api pour laisser Traefik les gérer
-        - "traefik.http.routers.gateway.rule=PathPrefix(`/`) && !PathPrefix(`/dashboard`) && !PathPrefix(`/api`)"
+        # Gateway capture toutes les routes sur le port 80
+        - "traefik.http.routers.gateway.rule=PathPrefix(`/`)"
         - "traefik.http.routers.gateway.entrypoints=web"
         - "traefik.http.services.gateway.loadbalancer.server.port=8000"
     networks:
