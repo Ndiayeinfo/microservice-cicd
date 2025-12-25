@@ -12,6 +12,13 @@ name: CI - Main Build & Push
 on:
   push:
     branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      skip_build:
+        description: 'Skip build (utiliser images existantes)'
+        required: false
+        default: 'false'
+        type: boolean
 
 concurrency:
   group: ci-main
@@ -20,6 +27,8 @@ concurrency:
 jobs:
   build-all:
     runs-on: ubuntu-latest
+    # Désactiver le build si skip_build est true (pour éviter la limite Docker Hub)
+    if: ${{ !inputs.skip_build || github.event_name != 'workflow_dispatch' }}
     strategy:
       matrix:
         service: [gateway, auth, project, billing, notification, analytics]
