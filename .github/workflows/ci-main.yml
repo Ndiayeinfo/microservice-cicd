@@ -74,24 +74,32 @@ jobs:
           echo "Attente de ${delay} secondes pour éviter la limite de pull rate..."
           sleep $delay
 
-      # 5. Build & Push vers GitHub Container Registry (ghcr.io)
+      # 5. Convertir le nom du repository owner en minuscules (requis par ghcr.io)
+      - name: Set lowercase repository owner
+        id: repo
+        run: |
+          REPO_OWNER_LOWER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          echo "owner=$REPO_OWNER_LOWER" >> $GITHUB_OUTPUT
+          echo "Repository owner (lowercase): $REPO_OWNER_LOWER"
+
+      # 6. Build & Push vers GitHub Container Registry (ghcr.io)
       - name: Build & Push ${{ matrix.service }}
         uses: docker/build-push-action@v6
         with:
           context: ./services/${{ matrix.service }}
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/cloudtaskhub-${{ matrix.service }}:latest
-            ghcr.io/${{ github.repository_owner }}/cloudtaskhub-${{ matrix.service }}:${{ github.sha }}
-          cache-from: type=registry,ref=ghcr.io/${{ github.repository_owner }}/cloudtaskhub-${{ matrix.service }}:latest
+            ghcr.io/${{ steps.repo.outputs.owner }}/cloudtaskhub-${{ matrix.service }}:latest
+            ghcr.io/${{ steps.repo.outputs.owner }}/cloudtaskhub-${{ matrix.service }}:${{ github.sha }}
+          cache-from: type=registry,ref=ghcr.io/${{ steps.repo.outputs.owner }}/cloudtaskhub-${{ matrix.service }}:latest
           cache-to: type=inline,mode=max
           platforms: linux/amd64
 
-      # 6. Scan sécurité (optionnel mais pro)
+      # 7. Scan sécurité (optionnel mais pro)
       - name: Scan image with Trivy
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ghcr.io/${{ github.repository_owner }}/cloudtaskhub-${{ matrix.service }}:latest
+          image-ref: ghcr.io/${{ steps.repo.outputs.owner }}/cloudtaskhub-${{ matrix.service }}:latest
           format: table
           exit-code: 1
           ignore-unfixed: true

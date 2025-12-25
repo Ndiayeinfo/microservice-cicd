@@ -87,8 +87,10 @@ jobs:
             docker network create --driver overlay --attachable --subnet=172.21.0.0/16 internal || true
 
             # CRÉER LE FICHIER .env.prod (nécessaire pour docker-compose.prod.yml)
+            # Convertir le nom du repository owner en minuscules (requis par ghcr.io)
+            REPO_OWNER_LOWER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
             echo "Création du fichier .env.prod..."
-            echo "GITHUB_REPOSITORY_OWNER=${{ github.repository_owner }}" > /opt/cloudtaskhub/.env.prod
+            echo "GITHUB_REPOSITORY_OWNER_LOWER=$REPO_OWNER_LOWER" > /opt/cloudtaskhub/.env.prod
             echo "IMAGE_TAG=latest" >> /opt/cloudtaskhub/.env.prod
 
             # Vérifier que le fichier a été créé
@@ -97,7 +99,7 @@ jobs:
             
             # Login à GitHub Container Registry pour pull les images
             echo "Login à GitHub Container Registry..."
-            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $REPO_OWNER_LOWER --password-stdin
 
             # VÉRIFIER QUE LES FICHIERS PROMETHEUS EXISTENT
             echo "Vérification des fichiers Prometheus..."
@@ -125,7 +127,7 @@ EOF
 
             # Vérifier que les variables sont chargées
             echo "Variables d'environnement chargées :"
-            echo "GITHUB_REPOSITORY_OWNER=$GITHUB_REPOSITORY_OWNER"
+            echo "GITHUB_REPOSITORY_OWNER_LOWER=$GITHUB_REPOSITORY_OWNER_LOWER"
             echo "IMAGE_TAG=$IMAGE_TAG"
 
             echo "Déploiement du stack..."

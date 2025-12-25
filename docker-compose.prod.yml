@@ -56,7 +56,7 @@ services:
 
   gateway-service:
     <<: *common-microservice
-    image: ghcr.io/${GITHUB_REPOSITORY_OWNER}/cloudtaskhub-gateway:latest
+    image: ghcr.io/${GITHUB_REPOSITORY_OWNER_LOWER}/cloudtaskhub-gateway:latest
     deploy:
       replicas: 1
       labels:
@@ -71,31 +71,31 @@ services:
 
   auth-service:
     <<: *common-microservice
-    image: ghcr.io/${GITHUB_REPOSITORY_OWNER}/cloudtaskhub-auth:latest
+    image: ghcr.io/${GITHUB_REPOSITORY_OWNER_LOWER}/cloudtaskhub-auth:latest
     deploy:
       replicas: 2
 
   project-service:
     <<: *common-microservice
-    image: ghcr.io/${GITHUB_REPOSITORY_OWNER}/cloudtaskhub-project:latest
+    image: ghcr.io/${GITHUB_REPOSITORY_OWNER_LOWER}/cloudtaskhub-project:latest
     deploy:
       replicas: 1
 
   billing-service:
     <<: *common-microservice
-    image: ghcr.io/${GITHUB_REPOSITORY_OWNER}/cloudtaskhub-billing:latest
+    image: ghcr.io/${GITHUB_REPOSITORY_OWNER_LOWER}/cloudtaskhub-billing:latest
     deploy:
       replicas: 1
 
   notification-service:
     <<: *common-microservice
-    image: ghcr.io/${GITHUB_REPOSITORY_OWNER}/cloudtaskhub-notification:latest
+    image: ghcr.io/${GITHUB_REPOSITORY_OWNER_LOWER}/cloudtaskhub-notification:latest
     deploy:
       replicas: 1
 
   analytics-service:
     <<: *common-microservice
-    image: ghcr.io/${GITHUB_REPOSITORY_OWNER}/cloudtaskhub-analytics:latest
+    image: ghcr.io/${GITHUB_REPOSITORY_OWNER_LOWER}/cloudtaskhub-analytics:latest
     deploy:
       replicas: 1
 
