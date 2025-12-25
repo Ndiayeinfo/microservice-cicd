@@ -97,6 +97,34 @@ def count_events():
     return {"count": fake_metrics["billing_events"]}
 
 
+# ============================================================
+# Endpoint d'envoi de notification
+# ============================================================
+from pydantic import BaseModel
+
+class NotificationRequest(BaseModel):
+    to: str
+    subject: str
+    body: str
+
+@app.post("/send")
+def send_notification(request: NotificationRequest):
+    """
+    Endpoint pour envoyer une notification (simulation en mode test)
+    """
+    print(f"NOTIFICATION → Envoi à {request.to}")
+    print(f"  Sujet: {request.subject}")
+    print(f"  Corps: {request.body}")
+    
+    # En mode simulation, on simule juste l'envoi
+    return {
+        "message": "notification sent (simulated)",
+        "to": request.to,
+        "subject": request.subject,
+        "status": "success"
+    }
+
+
 # Bonus : endpoint pour simuler un événement (très utile en dev/test)
 @app.post("/simulate/event")
 def simulate_billing_event():
