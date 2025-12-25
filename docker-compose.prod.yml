@@ -113,6 +113,7 @@ services:
     image: prom/prometheus:latest
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./prometheus-alerts.yml:/etc/prometheus/prometheus-alerts.yml
     ports: ["9090:9090"]
     deploy:
       labels: [traefik.enable=false]

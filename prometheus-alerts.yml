@@ -1,0 +1,67 @@
+groups:
+  - name: cloudtaskhub_alerts
+    interval: 30s
+    rules:
+      # Alerte : Taux d'erreur élevé
+      - alert: HighErrorRate
+        expr: |
+          sum(rate(http_requests_total{status=~"[45].."}[5m])) by (job)
+          /
+          sum(rate(http_requests_total[5m])) by (job)
+          * 100 > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Taux d'erreur élevé sur {{ $labels.job }}"
+          description: "Le service {{ $labels.job }} a un taux d'erreur de {{ $value }}% (seuil: 5%)"
+
+      # Alerte : Service inaccessible
+      - alert: ServiceDown
+        expr: up{job=~"gateway|auth|project|billing|notification|analytics"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service {{ $labels.job }} est down"
+          description: "Le service {{ $labels.job }} n'est pas accessible depuis {{ $for }}"
+
+      # Alerte : Latence élevée
+      - alert: HighLatency
+        expr: |
+          histogram_quantile(0.95, 
+            sum(rate(http_request_duration_seconds_bucket[5m])) by (le, job)
+          ) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Latence élevée sur {{ $labels.job }}"
+          description: "La latence P95 du service {{ $labels.job }} est de {{ $value }}s (seuil: 1s)"
+
+      # Alerte : Aucune requête (service inactif)
+      - alert: NoRequests
+        expr: |
+          sum(rate(http_requests_total[10m])) by (job) == 0
+          and
+          up{job=~"gateway|auth|project|billing|notification|analytics"} == 1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Aucune requête sur {{ $labels.job }}"
+          description: "Le service {{ $labels.job }} n'a reçu aucune requête depuis 10 minutes"
+
+      # Alerte : Taux de requêtes anormalement bas
+      - alert: LowRequestRate
+        expr: |
+          sum(rate(http_requests_total[5m])) by (job) < 0.01
+          and
+          job == "gateway"
+        for: 10m
+        labels:
+          severity: info
+        annotations:
+          summary: "Taux de requêtes très bas sur Gateway"
+          description: "Le Gateway reçoit moins de 0.01 requêtes/seconde"
+
