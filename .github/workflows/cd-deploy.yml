@@ -14,14 +14,24 @@ on:
     branches: [main]
   # Déclenchement manuel (optionnel)
   workflow_dispatch:
+  # Déclenchement direct sur push (pour debug et déploiement rapide)
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.gitignore'
+      - 'README.md'
 
 jobs:
   deploy:
     # Se déclenche si :
     # - Le workflow CI a réussi (workflow_run)
     # - OU si déclenché manuellement (workflow_dispatch)
+    # - OU si push sur main (pour déploiement direct)
     if: |
       github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'push' ||
       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
 
