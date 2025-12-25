@@ -60,9 +60,14 @@ jobs:
             docker network create --driver overlay --attachable --subnet=172.20.0.0/16 traefik-public || true
             docker network create --driver overlay --attachable --subnet=172.21.0.0/16 internal || true
 
-            # Variables d'environnement
-            export DOCKERHUB_USERNAME="${{ secrets.DOCKERHUB_USERNAME }}"
-            export IMAGE_TAG="latest"
+            # CRÉER LE FICHIER .env.prod (nécessaire pour docker-compose.prod.yml)
+            echo "Création du fichier .env.prod..."
+            echo "DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}" > /opt/cloudtaskhub/.env.prod
+            echo "IMAGE_TAG=latest" >> /opt/cloudtaskhub/.env.prod
+
+            # Vérifier que le fichier a été créé
+            echo "Contenu de .env.prod :"
+            cat /opt/cloudtaskhub/.env.prod
 
             echo "Déploiement du stack..."
             docker stack deploy -c docker-compose.prod.yml cloudtaskhub --with-registry-auth --prune

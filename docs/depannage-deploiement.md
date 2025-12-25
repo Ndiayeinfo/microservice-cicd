@@ -97,6 +97,29 @@ cat docker-compose.prod.yml | head -20
 
 ### 🐛 Autres Erreurs Possibles
 
+#### Erreur : "open /opt/cloudtaskhub/.env.prod: no such file or directory"
+
+**Symptôme** : Le déploiement échoue car le fichier `.env.prod` n'existe pas.
+
+**Solution** : Le workflow a été corrigé pour créer automatiquement ce fichier. Si vous voyez encore cette erreur :
+
+1. **Vérifier que le workflow est à jour** :
+   - Le workflow doit créer automatiquement `.env.prod` avant le déploiement
+   - Vérifiez dans GitHub Actions que la version corrigée est utilisée
+
+2. **Créer manuellement le fichier** (solution temporaire) :
+   ```bash
+   # Sur la VM
+   cd /opt/cloudtaskhub
+   cat > .env.prod << EOF
+   DOCKERHUB_USERNAME=votre_username_dockerhub
+   IMAGE_TAG=latest
+   EOF
+   
+   # Vérifier
+   cat .env.prod
+   ```
+
 #### Erreur : "Permission denied"
 
 **Solution** :
