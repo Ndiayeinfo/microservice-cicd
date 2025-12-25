@@ -69,6 +69,17 @@ jobs:
             echo "Contenu de .env.prod :"
             cat /opt/cloudtaskhub/.env.prod
 
+            # CRÉER LE FICHIER prometheus-alerts.yml S'IL N'EXISTE PAS
+            if [ ! -f /opt/cloudtaskhub/prometheus-alerts.yml ]; then
+              echo "Création du fichier prometheus-alerts.yml (vide par défaut)..."
+              cat > /opt/cloudtaskhub/prometheus-alerts.yml << 'EOF'
+groups:
+  - name: cloudtaskhub_alerts
+    interval: 30s
+    rules: []
+EOF
+            fi
+
             # Charger les variables d'environnement depuis .env.prod
             # Docker Swarm nécessite que les variables soient dans l'environnement
             export $(cat /opt/cloudtaskhub/.env.prod | xargs)
