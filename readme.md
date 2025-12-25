@@ -13,6 +13,37 @@ Ce projet illustre les bonnes pratiques DevOps modernes, le déploiement distrib
 
 ---
 
+## 🎓 Tutoriels de Déploiement
+
+### Pour les Débutants (Recommandé)
+
+**📘 [Tutoriel Complet GCP - Guide Détaillé Pas à Pas](./docs/tutoriel-complet-gcp.md)**
+
+Un tutoriel exhaustif de 24h pour déployer CloudTaskHub sur **Google Cloud Platform (GCE)** :
+- ✅ Création de la VM GCP étape par étape
+- ✅ Configuration Docker et Docker Swarm
+- ✅ Setup complet de GitHub Actions
+- ✅ Explications détaillées de chaque concept
+- ✅ Dépannage et solutions aux problèmes courants
+- ✅ Caractéristiques de machine recommandées
+
+**Caractéristiques VM recommandées** :
+- Type : `e2-standard-2` (2 vCPU, 8 Go RAM)
+- OS : Ubuntu 22.04 LTS
+- Disque : 30 Go SSD
+- Coût estimé : ~$20-35/mois
+
+### Pour les Utilisateurs Expérimentés
+
+**⚡ [Guide Rapide GCP](./docs/guide-rapide-gcp.md)** - Checklist et commandes essentielles
+
+### Autres Guides
+
+- **📄 [Setup VPS Générique](./docs/setup-vps.md)** - Pour DigitalOcean, AWS EC2, etc.
+- **🔐 [Configuration GitHub Secrets](./docs/github-secrets.md)** - Setup des secrets CI/CD
+
+---
+
 ## 🏗️ Architecture Globale
 
 ### 🎯 Services applicatifs
@@ -306,3 +337,4 @@ pre-commit run --all-files
 
 Si un hook échoue → le commit est bloqué, et tu corriges avant de pousser un code cassé.
 
+# Test deployment
