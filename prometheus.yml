@@ -2,10 +2,11 @@ global:
   scrape_interval: 5s
   evaluation_interval: 30s
 
-# Configuration des règles d'alertes (optionnel)
-# Si le fichier n'existe pas, Prometheus démarrera quand même
-rule_files:
-  - "/etc/prometheus/prometheus-alerts.yml"
+# Configuration des règles d'alertes
+# Désactivé temporairement si le fichier cause des problèmes
+# Décommentez la ligne suivante une fois que prometheus-alerts.yml est validé
+# rule_files:
+#   - "/etc/prometheus/prometheus-alerts.yml"
 
 scrape_configs:
   - job_name: "gateway"

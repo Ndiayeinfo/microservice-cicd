@@ -113,7 +113,9 @@ services:
     image: prom/prometheus:latest
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
-      - ./prometheus-alerts.yml:/etc/prometheus/prometheus-alerts.yml
+      # Fichier d'alertes - sera monté automatiquement s'il existe dans le repo
+      # Si le fichier cause des problèmes, commentez la ligne suivante
+      - ./prometheus-alerts.yml:/etc/prometheus/prometheus-alerts.yml:ro
     ports: ["9090:9090"]
     deploy:
       labels: [traefik.enable=false]

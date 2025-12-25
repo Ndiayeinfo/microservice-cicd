@@ -69,7 +69,11 @@ jobs:
             echo "Contenu de .env.prod :"
             cat /opt/cloudtaskhub/.env.prod
 
-            # CRÉER LE FICHIER prometheus-alerts.yml S'IL N'EXISTE PAS
+            # VÉRIFIER QUE LES FICHIERS PROMETHEUS EXISTENT
+            echo "Vérification des fichiers Prometheus..."
+            ls -la /opt/cloudtaskhub/prometheus*.yml || echo "Aucun fichier prometheus trouvé"
+            
+            # Si prometheus-alerts.yml n'existe pas, créer un fichier minimal valide
             if [ ! -f /opt/cloudtaskhub/prometheus-alerts.yml ]; then
               echo "Création du fichier prometheus-alerts.yml (vide par défaut)..."
               cat > /opt/cloudtaskhub/prometheus-alerts.yml << 'EOF'
@@ -79,6 +83,11 @@ groups:
     rules: []
 EOF
             fi
+            
+            # Vérifier la syntaxe YAML basique
+            echo "Vérification de la syntaxe des fichiers..."
+            python3 -c "import yaml; yaml.safe_load(open('/opt/cloudtaskhub/prometheus.yml'))" 2>/dev/null || echo "Warning: Impossible de valider prometheus.yml"
+            python3 -c "import yaml; yaml.safe_load(open('/opt/cloudtaskhub/prometheus-alerts.yml'))" 2>/dev/null || echo "Warning: Impossible de valider prometheus-alerts.yml"
 
             # Charger les variables d'environnement depuis .env.prod
             # Docker Swarm nécessite que les variables soient dans l'environnement
