@@ -3,10 +3,8 @@ global:
   evaluation_interval: 30s
 
 # Configuration des règles d'alertes
-# Désactivé temporairement si le fichier cause des problèmes
-# Décommentez la ligne suivante une fois que prometheus-alerts.yml est validé
-# rule_files:
-#   - "/etc/prometheus/prometheus-alerts.yml"
+rule_files:
+  - "/etc/prometheus/prometheus-alerts.yml"
 
 scrape_configs:
   - job_name: "gateway"
