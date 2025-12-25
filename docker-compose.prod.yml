@@ -21,10 +21,12 @@ services:
     command:
       - "--api=true"                           # Active l'API (obligatoire pour dashboard v3)
       - "--api.dashboard=true"                 # Dashboard moderne
+      - "--api.insecure=true"                  # Permet l'accès au dashboard sans authentification (pour dev/test)
       - "--providers.swarm=true"               # ← NOUVEAU : Provider Swarm séparé (remplace docker.swarmMode)
       - "--providers.swarm.exposedByDefault=false"  # Ignore les services sans traefik.enable=true
       - "--providers.swarm.network=traefik-public"  # Réseau pour discovery
       - "--entrypoints.web.address=:80"
+      - "--entrypoints.dashboard.address=:8080"  # Entrypoint spécifique pour le dashboard
       - "--metrics=true"
       - "--metrics.prometheus=true"
       - "--metrics.prometheus.entrypoint=web"
@@ -47,10 +49,14 @@ services:
         constraints: [node.role == manager]
       labels:
         - "traefik.enable=true"
+        # Dashboard accessible via le port 80 (via Traefik routing)
         - "traefik.http.routers.dashboard.rule=PathPrefix(`/dashboard`) || PathPrefix(`/api`)"  # Accès au dashboard et API
         - "traefik.http.routers.dashboard.service=api@internal"
         - "traefik.http.routers.dashboard.entrypoints=web"
-        - "traefik.http.services.traefik.loadbalancer.server.port=8080"
+        # Dashboard accessible directement sur le port 8080
+        - "traefik.http.routers.dashboard-direct.rule=PathPrefix(`/`)"
+        - "traefik.http.routers.dashboard-direct.service=api@internal"
+        - "traefik.http.routers.dashboard-direct.entrypoints=dashboard"
     networks:
       - traefik-public
 
@@ -61,8 +67,8 @@ services:
       replicas: 1
       labels:
         - "traefik.enable=true"
-        # - "traefik.http.routers.gateway.rule=HostRegexp(`{host:.+}`)"
-        - "traefik.http.routers.gateway.rule=PathPrefix(`/`)"
+        # Exclure /dashboard et /api pour laisser Traefik les gérer
+        - "traefik.http.routers.gateway.rule=PathPrefix(`/`) && !PathPrefix(`/dashboard`) && !PathPrefix(`/api`)"
         - "traefik.http.routers.gateway.entrypoints=web"
         - "traefik.http.services.gateway.loadbalancer.server.port=8000"
     networks:
