@@ -40,7 +40,15 @@ jobs:
           driver-opts: |
             image=moby/buildkit:latest
 
-      # 3. Login Docker Hub (nécessaire pour push ET pull)
+      # 3. Login GitHub Container Registry (pas de limite de pull rate)
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      
+      # 3b. Login Docker Hub aussi (pour les images de base comme python:3.11-slim)
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
@@ -66,24 +74,24 @@ jobs:
           echo "Attente de ${delay} secondes pour éviter la limite de pull rate..."
           sleep $delay
 
-      # 5. Build & Push avec cache et authentification pour les pulls
+      # 5. Build & Push vers GitHub Container Registry (ghcr.io)
       - name: Build & Push ${{ matrix.service }}
         uses: docker/build-push-action@v6
         with:
           context: ./services/${{ matrix.service }}
           push: true
           tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/cloudtaskhub-${{ matrix.service }}:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/cloudtaskhub-${{ matrix.service }}:${{ github.sha }}
-          cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/cloudtaskhub-${{ matrix.service }}:latest
+            ghcr.io/${{ github.repository_owner }}/cloudtaskhub-${{ matrix.service }}:latest
+            ghcr.io/${{ github.repository_owner }}/cloudtaskhub-${{ matrix.service }}:${{ github.sha }}
+          cache-from: type=registry,ref=ghcr.io/${{ github.repository_owner }}/cloudtaskhub-${{ matrix.service }}:latest
           cache-to: type=inline,mode=max
           platforms: linux/amd64
 
-      # 4. Scan sécurité (optionnel mais pro)
+      # 6. Scan sécurité (optionnel mais pro)
       - name: Scan image with Trivy
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ secrets.DOCKERHUB_USERNAME }}/cloudtaskhub-${{ matrix.service }}:latest
+          image-ref: ghcr.io/${{ github.repository_owner }}/cloudtaskhub-${{ matrix.service }}:latest
           format: table
           exit-code: 1
           ignore-unfixed: true

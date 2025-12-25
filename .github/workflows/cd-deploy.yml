@@ -88,12 +88,16 @@ jobs:
 
             # CRÉER LE FICHIER .env.prod (nécessaire pour docker-compose.prod.yml)
             echo "Création du fichier .env.prod..."
-            echo "DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}" > /opt/cloudtaskhub/.env.prod
+            echo "GITHUB_REPOSITORY_OWNER=${{ github.repository_owner }}" > /opt/cloudtaskhub/.env.prod
             echo "IMAGE_TAG=latest" >> /opt/cloudtaskhub/.env.prod
 
             # Vérifier que le fichier a été créé
             echo "Contenu de .env.prod :"
             cat /opt/cloudtaskhub/.env.prod
+            
+            # Login à GitHub Container Registry pour pull les images
+            echo "Login à GitHub Container Registry..."
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin
 
             # VÉRIFIER QUE LES FICHIERS PROMETHEUS EXISTENT
             echo "Vérification des fichiers Prometheus..."
@@ -121,7 +125,7 @@ EOF
 
             # Vérifier que les variables sont chargées
             echo "Variables d'environnement chargées :"
-            echo "DOCKERHUB_USERNAME=$DOCKERHUB_USERNAME"
+            echo "GITHUB_REPOSITORY_OWNER=$GITHUB_REPOSITORY_OWNER"
             echo "IMAGE_TAG=$IMAGE_TAG"
 
             echo "Déploiement du stack..."
