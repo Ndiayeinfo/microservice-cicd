@@ -69,6 +69,15 @@ jobs:
             echo "Contenu de .env.prod :"
             cat /opt/cloudtaskhub/.env.prod
 
+            # Charger les variables d'environnement depuis .env.prod
+            # Docker Swarm nécessite que les variables soient dans l'environnement
+            export $(cat /opt/cloudtaskhub/.env.prod | xargs)
+
+            # Vérifier que les variables sont chargées
+            echo "Variables d'environnement chargées :"
+            echo "DOCKERHUB_USERNAME=$DOCKERHUB_USERNAME"
+            echo "IMAGE_TAG=$IMAGE_TAG"
+
             echo "Déploiement du stack..."
             docker stack deploy -c docker-compose.prod.yml cloudtaskhub --with-registry-auth --prune
 
