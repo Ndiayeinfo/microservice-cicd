@@ -68,6 +68,8 @@ jobs:
 
       # 4. Attendre un peu pour éviter de dépasser la limite de pull rate
       # Délai basé sur l'index du service dans la matrix
+      # ATTENTION: Si la limite Docker Hub est déjà atteinte, cette attente ne suffira pas
+      # Vous devrez attendre 6 heures pour que la limite se réinitialise
       - name: Wait to avoid rate limit
         run: |
           # Calculer un délai basé sur l'index du service (0-5)
@@ -79,9 +81,11 @@ jobs:
               break
             fi
           done
-          # Attendre 30 secondes par service pour espacer les pulls
-          delay=$((index * 30))
+          # Attendre 60 secondes par service pour espacer les pulls (augmenté de 30 à 60)
+          delay=$((index * 60))
           echo "Attente de ${delay} secondes pour éviter la limite de pull rate..."
+          echo "NOTE: Si la limite Docker Hub est déjà atteinte, vous devrez attendre 6 heures."
+          echo "Voir docs/solution-docker-rate-limit.md pour plus d'informations."
           sleep $delay
 
       # 5. Convertir le nom du repository owner en minuscules (requis par ghcr.io)
