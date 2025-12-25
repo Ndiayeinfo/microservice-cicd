@@ -7,14 +7,22 @@
 name: CD - Deploy Production
 
 on:
+  # Déclenchement automatique après succès du CI
   workflow_run:
     workflows: ["CI - Main Build & Push"]
     types: [completed]
     branches: [main]
+  # Déclenchement manuel (optionnel)
+  workflow_dispatch:
 
 jobs:
   deploy:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    # Se déclenche si :
+    # - Le workflow CI a réussi (workflow_run)
+    # - OU si déclenché manuellement (workflow_dispatch)
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
 
     steps:
