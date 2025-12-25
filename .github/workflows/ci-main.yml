@@ -23,8 +23,8 @@ jobs:
     strategy:
       matrix:
         service: [gateway, auth, project, billing, notification, analytics]
-      # Réduire le parallélisme pour éviter la limite de pull rate Docker Hub
-      max-parallel: 2
+      # Un seul build à la fois pour éviter la limite de pull rate Docker Hub
+      max-parallel: 1
 
     name: Build → ${{ matrix.service }}
 
@@ -48,7 +48,25 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
           logout: false
 
-      # 4. Build & Push avec cache et authentification pour les pulls
+      # 4. Attendre un peu pour éviter de dépasser la limite de pull rate
+      # Délai basé sur l'index du service dans la matrix
+      - name: Wait to avoid rate limit
+        run: |
+          # Calculer un délai basé sur l'index du service (0-5)
+          services=("gateway" "auth" "project" "billing" "notification" "analytics")
+          index=0
+          for i in "${!services[@]}"; do
+            if [ "${services[$i]}" == "${{ matrix.service }}" ]; then
+              index=$i
+              break
+            fi
+          done
+          # Attendre 30 secondes par service pour espacer les pulls
+          delay=$((index * 30))
+          echo "Attente de ${delay} secondes pour éviter la limite de pull rate..."
+          sleep $delay
+
+      # 5. Build & Push avec cache et authentification pour les pulls
       - name: Build & Push ${{ matrix.service }}
         uses: docker/build-push-action@v6
         with:
