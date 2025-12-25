@@ -26,6 +26,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Debug - Event Info
+        run: |
+          echo "Event name: ${{ github.event_name }}"
+          echo "Event type: ${{ github.event.workflow_run.event }}"
+          if [ "${{ github.event_name }}" == "workflow_run" ]; then
+            echo "Workflow run conclusion: ${{ github.event.workflow_run.conclusion }}"
+            echo "Workflow run name: ${{ github.event.workflow_run.name }}"
+          fi
       - name: Deploy to Swarm via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
